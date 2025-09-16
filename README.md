@@ -19,11 +19,7 @@ This repository contains the code and scripts used for the analysis of long-read
      - Quality filtering (junction support, ORF validation, artifact removal)  
      - Integration with short-read RNA-seq via *kallisto* quantification  
 
-3. **Short-read & Long-read Integration**  
-   - Tool: [Kallisto](https://pachterlab.github.io/kallisto/)  
-   - Merged with SQANTI3 outputs to improve isoform quantification and filtering  
-
-4. **Downstream R Analysis**  
+3. **Downstream R Analysis**  
    - **DESeq2**: Differential gene and isoform expression across conditions (C0, C3, C7)  
    - **Novel isoform analysis**: Identification and characterization of injury-induced novel transcripts  
    - **DTU (Differential Transcript Usage)**: Performed with [IsoformSwitchAnalyzeR](https://bioconductor.org/packages/release/bioc/html/IsoformSwitchAnalyzeR.html) to detect isoform switching events and functional consequences  
@@ -32,7 +28,7 @@ This repository contains the code and scripts used for the analysis of long-read
 
 ## Requirements
 
-- **IsoQuant** (Docker or Conda)  
+- **IsoQuant** (docker(etycksen/isoquant:latest))  
 - **SQANTI3** (Python 3 + dependencies)  
 - **Kallisto** (≥ v0.46)  
 - **R (≥ 4.2.0)** with the following packages:  
