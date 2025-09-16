@@ -1,4 +1,4 @@
-#!/bin/bash
+#Run code: /bin/bash run_sqanti3.sh C7_Injured_Sciatic_1 C7_Injury fastq_C7_Injured_1.fofn
 
 #C7_Injured_Sciatic_1
 SAMPLE_NAME=$1
