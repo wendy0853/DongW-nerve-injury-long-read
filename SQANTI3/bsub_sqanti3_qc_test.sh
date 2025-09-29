@@ -27,4 +27,4 @@ mkdir -p ${OUTPUT_DIR}
 
 # Run SQANTI3 QC with CAGE peaks and polyA peaks
 echo ${SAMPLE_NAME} ${ISOQUANT_GTF} ${OUTPUT_DIR}
-sqanti3_qc.py ${ISOQUANT_GTF} ${REFERENCE_GTF} ${REFERENCE_FASTA} --short_reads ${SHORT_READ_BAM}   --polyA_motif_list ${POLYA_MOTIF_LIST}   --polyA_peak ${POLYA_PEAK_FILE}   --CAGE_peak ${CAGE_PEAK_FILE}   -d ${OUTPUT_DIR}   --cpus 8 -o ${SAMPLE_NAME} 
+sqanti3_qc.py ${ISOQUANT_GTF} ${REFERENCE_GTF} ${REFERENCE_FASTA} --fastq ${RAW_FASTQ} --short_reads ${SHORT_READ_BAM}   --polyA_motif_list ${POLYA_MOTIF_LIST}   --polyA_peak ${POLYA_PEAK_FILE}   --CAGE_peak ${CAGE_PEAK_FILE}   -d ${OUTPUT_DIR}   --cpus 8 -o ${SAMPLE_NAME} 
