@@ -18,7 +18,7 @@ mkdir -p ${OUTPUT_DIR}
 # Run SQANTI3 Filter
 echo ${SAMPLE_NAME} ${CLASS_TXT} ${OUTPUT_DIR}
 
-sqanti3_rescue.py rules --filter_class  ${OUTPUT_DIR} \
+sqanti3_rescue.py rules --filter_class  ${OUTPUT_DIR}/${SAMPLE_NAME}_RulesFilter_result_classification.txt\
                         --refGTF ${REFERENCE_GTF} \
                         --refFasta ${REFERENCE_FASTA} \
                         --mode automatic \
