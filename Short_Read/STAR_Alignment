@@ -1,0 +1,8 @@
+
+
+STAR --runThreadN 16 \
+  --genomeDir star_newref \
+  --readFilesIn sample_R1.fastq.gz sample_R2.fastq.gz \
+  --readFilesCommand zcat \
+  --outSAMtype BAM SortedByCoordinate \
+  --outFileNamePrefix sample.newref.
