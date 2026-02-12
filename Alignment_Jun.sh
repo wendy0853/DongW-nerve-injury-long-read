@@ -1,18 +1,18 @@
-# 0) sanity: make sure the BAM is indexed
-samtools index sample.sorted.bam
+# Start interactive session
+bsub -Is -G compute-jin810-t3 -q subscription -sla jin810_t3 -n 8 \
+    -R 'gpuhost rusage[mem=64GB]' \
+    -gpu 'num=1:j_exclusive=yes' \
+    -a 'docker(biocontainers/samtools:v1.9-4-deb_cv1)' \
+/bin/bash
+
 
 # 1) extract Jun region (+/- 5kb padding)
 samtools view -b \
-  sample.sorted.bam \
+  C7_Injured_Sciatic_3_C7_Injured_Sciatic_3_98f996_7ac08f_ae73b0.bam \
   chr4:94932271-94945459 \
-  > sample_Jun.bam
+  > C7_Injured_Sciatic_3_Jun.bam
 
 # 2) index the subset BAM
-samtools index sample_Jun.bam
+samtools index C7_Injured_Sciatic_3_Jun.bam
 
 
-bsub -Is -G compute-jin810 -q general-interactive -n 4 \
-    -R 'gpuhost rusage[mem=64GB]' \
-    -gpu 'num=1:j_exclusive=yes' \
-    -a 'docker(us.gcr.io/broad-dsde-methods/cellbender:0.3.0)' \
-/bin/bash
