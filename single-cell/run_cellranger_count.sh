@@ -63,9 +63,12 @@ cellranger count \
 LSF_DOCKER_PRESERVE_ENVIRONMENT=false bsub -G compute-jin810-t3 -q subscription -sla jin810_t3 -M 200GB -R 'rusage[mem=150GB]' \
 -a 'docker(jinlab/velocytoxcellranger:vs0.17.17x9.0.1)' \
 cellranger count \
---id C7_8 \
+--id C3_1 \
 --transcriptome /storage1/fs1/jin810/Active/References/GRCm39_10X/GRCm39_MbpSplit \
---fastqs /storage1/fs1/jin810/Active/U19_Data_Core/1_Project/Milbrandt_Lab/Datasets/isnat_data_22Feb2026/SRR18355062 \
---sample Sample_2405-RG-07 \
---output-dir /storage1/fs1/jin810/Active/Projects/snRNAseq/20260223_Golli_Compact_Mbp_iSNAT/C7_8 \
+--fastqs /storage1/fs1/jin810/Active/U19_Data_Core/1_Project/Milbrandt_Lab/Datasets/isnat_data_22Feb2026/SRR18355056 \
+--sample Sample_1181-RG-01 \
+--output-dir /storage1/fs1/jin810/Active/Projects/snRNAseq/20260223_Golli_Compact_Mbp_iSNAT/C3_1 \
 --create-bam=true --include-introns=true --localcores=16 --localmem=120
+
+
+LSF_DOCKER_ENTRYPOINT=/bin/sh bsub -Is -G compute-jin810 -q general-interactive -n 4 -a 'docker(elle/basic:vs5)' /bin/sh
