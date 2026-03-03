@@ -1,0 +1,122 @@
+# =============================================================================
+# Build a translation table to unify SQANTI3 novel isoforms across samples
+# (Novel isoforms are identified by transcript_id starting with "transcript")
+#
+# Output:
+#   novel_isoform_translation_FINAL.csv
+#     - unified_id: <gene_symbol>-novel-<index>
+#     - transcript_id: original SQANTI3 transcript_id with sample suffix _<idx>
+# =============================================================================
+
+suppressPackageStartupMessages({
+  library(rtracklayer)
+  library(GenomicRanges)
+  library(dplyr)
+  library(purrr)
+  library(tibble)
+  library(stringr)
+  library(biomaRt)
+  library(readr)
+  library(tidyr)
+})
+
+# ---- Paths (EDIT THESE) ----
+analysis_dir <- "/Users/wendydong/Documents/WUSM PhD/Long Read RNA Seq/Analysis_Long_Short_updated/"
+data_dir     <- "/Users/wendydong/Documents/WUSM PhD/Long Read RNA Seq/Long_read_results_updated/"
+results_dir  <- "/Users/wendydong/Documents/WUSM PhD/Long Read RNA Seq/Analysis_Long_Short_updated/C3_C7_vs_C0_results_FINAL/"
+
+setwd(analysis_dir)
+
+# ---- Input SQANTI3 corrected GTFs (relative to data_dir) ----
+file_names <- c(
+  "Filtered_SQANTI3_Results/C0_Sciatic_1_corrected.gtf",
+  "Filtered_SQANTI3_Results/C0_Sciatic_2_corrected.gtf",
+  "Filtered_SQANTI3_Results/C0_Sciatic_3_corrected.gtf",
+  "Filtered_SQANTI3_Results/C3_Injured_Sciatic_1_corrected.gtf",
+  "Filtered_SQANTI3_Results/C3_Injured_Sciatic_2_corrected.gtf",
+  "Filtered_SQANTI3_Results/C3_Injured_Sciatic_3_corrected.gtf",
+  "Filtered_SQANTI3_Results/C7_Injured_Sciatic_1_corrected.gtf",
+  "Filtered_SQANTI3_Results/C7_Injured_Sciatic_2_corrected.gtf",
+  "Filtered_SQANTI3_Results/C7_Injured_Sciatic_3_corrected.gtf"
+)
+file_paths <- file.path(data_dir, file_names)
+
+# ---- Read novel transcripts from one GTF and append sample suffix ----
+read_novel_transcripts <- function(gtf_path, idx) {
+  message("Importing: ", gtf_path)
+
+  gr <- import(gtf_path, format = "gtf")
+
+  # Keep only novel exons (SQANTI3 novel IDs typically start with "transcript")
+  exons <- gr[gr$type == "exon" & str_starts(gr$transcript_id, "transcript")]
+
+  # Split by transcript_id
+  tx_grl <- split(exons, exons$transcript_id)
+
+  # Append sample index so each per-sample transcript_id stays unique
+  names(tx_grl) <- paste0(names(tx_grl), "_", idx)
+
+  # Ensure gene_id is consistent per transcript
+  GRangesList(lapply(tx_grl, function(x) {
+    mcols(x)$gene_id <- x$gene_id[1]
+    x
+  }))
+}
+
+# Combine all samples into one GRangesList
+all_tx_grl <- imap(file_paths, read_novel_transcripts) |> do.call(what = c)
+message("Total novel transcripts collected: ", length(all_tx_grl))
+
+# ---- Build metadata table (transcript -> gene_id, fingerprint) ----
+tx_meta <- tibble(
+  transcript_id = names(all_tx_grl),
+  gr = as.list(all_tx_grl)
+) %>%
+  mutate(
+    gene_id = map_chr(gr, ~ mcols(.x)$gene_id[1]),
+    fingerprint = map_chr(gr, ~ paste0(
+      seqnames(.x), ":", start(.x), "-", end(.x), "(", strand(.x), ")",
+      collapse = ";"
+    )),
+    gene_id_core = sub("\\.\\d+$", "", gene_id)
+  ) %>%
+  select(transcript_id, gene_id, gene_id_core, fingerprint)
+
+# ---- Map Ensembl gene symbols (mouse) ----
+ensembl <- useMart("ensembl", dataset = "mmusculus_gene_ensembl")
+
+gene_map <- getBM(
+  attributes = c("ensembl_gene_id", "external_gene_name"),
+  filters    = "ensembl_gene_id",
+  values     = unique(tx_meta$gene_id_core),
+  mart       = ensembl
+) %>%
+  rename(gene_id_core = ensembl_gene_id, symbol = external_gene_name) %>%
+  right_join(tibble(gene_id_core = unique(tx_meta$gene_id_core)), by = "gene_id_core") %>%
+  mutate(symbol = ifelse(is.na(symbol) | symbol == "", gene_id_core, symbol))
+
+tx_meta <- tx_meta %>%
+  left_join(gene_map, by = "gene_id_core") %>%
+  mutate(gene_symbol = coalesce(symbol, gene_id)) %>%
+  select(transcript_id, gene_id, gene_id_core, gene_symbol, fingerprint)
+
+# ---- Assign unified IDs per (gene, fingerprint) ----
+lookup <- tx_meta %>%
+  distinct(gene_id, gene_symbol, fingerprint) %>%
+  group_by(gene_id, gene_symbol) %>%
+  arrange(fingerprint) %>%
+  mutate(
+    novel_idx = row_number(),
+    unified_id = paste0(gene_symbol, "-novel-", novel_idx)
+  ) %>%
+  ungroup() %>%
+  inner_join(
+    tx_meta %>% select(transcript_id, gene_id, fingerprint),
+    by = c("gene_id", "fingerprint")
+  ) %>%
+  select(unified_id, transcript_id)
+
+# ---- Write output ----
+out_path <- file.path(results_dir, "novel_isoform_translation_FINAL.csv")
+write_csv(lookup, out_path)
+message("Wrote: ", out_path)
