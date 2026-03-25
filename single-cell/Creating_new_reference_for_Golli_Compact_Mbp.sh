@@ -12,13 +12,15 @@ rsync -a --info=progress2 "${REFDIR}/" "${OUTREF}/"
 
 # Define exon IDs
 cat > MbpGolli.patterns.txt << 'EOF'
+exon_id "ENSMUSE00000571789"
 exon_id "ENSMUSE00001256352"
 exon_id "ENSMUSE00001241294"
 EOF
 
 cat > MbpCompact.patterns.txt << 'EOF'
-exon_id "ENSMUSE00001293533"
-exon_id "ENSMUSE00001227500"
+exon_id "ENSMUSE00000376561"
+exon_id "ENSMUSE00001457516"
+exon_id "ENSMUSE00000349836"
 EOF
 
 # Build minimal exon GTFs directly from original genes.gtf
