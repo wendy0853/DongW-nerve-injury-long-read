@@ -1,13 +1,37 @@
 set -euo pipefail
 
-REFDIR="/storage1/fs1/jin810/Active/References/GRCm39_10X/refdata-gex-GRCm39-2024-A"
+TAR="refdata-gex-GRCm39-2024-A.tar.gz"
+WORKDIR="$PWD/GRCm39_2024A_MbpSplitWork"
+mkdir -p "$WORKDIR"
+tar -xzf "$TAR" -C "$WORKDIR"
+
+# Find the unpacked ref directory
+REFDIR="$(find "$WORKDIR" -maxdepth 1 -type d -name 'refdata-gex-GRCm39-2024-A*' | head -n 1)"
+echo "REFDIR=$REFDIR"
+
+REFDIR="/storage1/fs1/jin810/Active/References/GRCm39_10X/GRCm39_2024A_MbpSplitWork/refdata-gex-GRCm39-2024-A"
+GTF_GZ="${REFDIR}/genes/genes.gtf.gz"
+GTF_IN="${REFDIR}/genes/genes.gtf" 
+echo "GTF_GZ=$GTF_GZ"
+ls -lh "$GTF_GZ"
+
+# unzip to a plain .gtf for easier awk/grep
+gunzip -c "$GTF_GZ" > "$GTF_IN"
+ls -lh "$GTF_IN"
+
+# Confirm expected files exist
+ls -lh "$REFDIR/genes/genes.gtf" "$REFDIR/fasta/genome.fa"
+
+# Set GTF and FA
 GTF_IN="${REFDIR}/genes/genes.gtf"
 FA_IN="${REFDIR}/fasta/genome.fa"
 
+grep -m 1 'gene_name "Mbp"' "$GTF_IN" | head
+
 MBP_GENE_ID="ENSMUSG00000041607"
 
-# Optional: copy the 10x refdata directory (only needed if you want a refdata-like output)
-OUTREF="refdata-gex-GRCm39-2024-A_MbpSplit"
+# Copy the 10x refdata directory
+OUTREF="/storage1/fs1/jin810/Active/References/GRCm39_10X/refdata-gex-GRCm39-2024-A_MbpSplit"
 rsync -a --info=progress2 "${REFDIR}/" "${OUTREF}/"
 
 # Define exon IDs
@@ -23,13 +47,26 @@ exon_id "ENSMUSE00001457516"
 exon_id "ENSMUSE00000349836"
 EOF
 
+
+# Verify that they exist
+echo "Golli hits:"
+grep -F -f MbpGolli.patterns.txt "$GTF_IN" | head -n 5
+echo "Count Golli hits:"
+grep -F -f MbpGolli.patterns.txt "$GTF_IN" | wc -l
+
+echo "Compact hits:"
+grep -F -f MbpCompact.patterns.txt "$GTF_IN" | head -n 5
+echo "Count Compact hits:"
+grep -F -f MbpCompact.patterns.txt "$GTF_IN" | wc -l
+
+
+
 # Build minimal exon GTFs directly from original genes.gtf
 grep -F -f MbpGolli.patterns.txt "$GTF_IN" \
   | awk -F'\t' 'BEGIN{OFS="\t"} $0 !~ /^#/ && $3=="exon" {
       ex="NA";
-      if ($0 ~ /ENSMUSE00001256352/) ex="ENSMUSE00001256352";
-      else if ($0 ~ /ENSMUSE00001241294/) ex="ENSMUSE00001241294";
-      key=$1 FS $4 FS $5 FS $7 FS ex;
+      if (match($9, /exon_id "([^"]+)"/, a)) ex=a[1];
+      key=$1 FS $4 FS $5 FS $7; 
       if (!(key in seen)) {
         seen[key]=1;
         print $1,"custom","exon",$4,$5,".",$7,".",
@@ -37,12 +74,12 @@ grep -F -f MbpGolli.patterns.txt "$GTF_IN" \
       }
     }' > Mbp_Golli.exons.min.gtf
 
+    
 grep -F -f MbpCompact.patterns.txt "$GTF_IN" \
   | awk -F'\t' 'BEGIN{OFS="\t"} $0 !~ /^#/ && $3=="exon" {
       ex="NA";
-      if ($0 ~ /ENSMUSE00001293533/) ex="ENSMUSE00001293533";
-      else if ($0 ~ /ENSMUSE00001227500/) ex="ENSMUSE00001227500";
-      key=$1 FS $4 FS $5 FS $7 FS ex;
+      if (match($9, /exon_id "([^"]+)"/, a)) ex=a[1];
+      key=$1 FS $4 FS $5 FS $7;   # dedupe by genomic interval (not exon_id)
       if (!(key in seen)) {
         seen[key]=1;
         print $1,"custom","exon",$4,$5,".",$7,".",
@@ -53,6 +90,16 @@ grep -F -f MbpCompact.patterns.txt "$GTF_IN" \
 # Validate exon min files
 awk -F'\t' '$0 !~ /^#/ && NF!=9{print "BAD",FNR,NF; exit 1}' Mbp_Golli.exons.min.gtf
 awk -F'\t' '$0 !~ /^#/ && NF!=9{print "BAD",FNR,NF; exit 1}' Mbp_Compact.exons.min.gtf
+
+echo "Unique genomic exon intervals retained:"
+echo -n "  Golli:   "; wc -l Mbp_Golli.exons.min.gtf
+echo -n "  Compact: "; wc -l Mbp_Compact.exons.min.gtf
+
+echo "Peek Golli min GTF:"
+head Mbp_Golli.exons.min.gtf
+echo "Peek Compact min GTF:"
+head Mbp_Compact.exons.min.gtf
+
 
 # Build gene+transcript records
 make_gene_tx_simple () {
@@ -83,14 +130,14 @@ cat genes.noMbp.gtf \
     Mbp_Compact.gene_tx.gtf Mbp_Compact.exons.min.gtf \
   > genes.MbpSplit.gtf
 
-# Structural validation (ignore comments)
+# Structural validation
 awk -F'\t' '
   $0 ~ /^#/ {next}
   NF!=9 {print "BAD", NR, NF; bad=1}
   END {if (bad) exit 1; else print "OK: all non-comment lines have 9 columns"}
 ' genes.MbpSplit.gtf
 
-# If you made a refdata copy, replace its GTF with the new one
+# Replace the copied ref GTF with the new one
 cp -f genes.MbpSplit.gtf "${OUTREF}/genes/genes.gtf"
 
 
