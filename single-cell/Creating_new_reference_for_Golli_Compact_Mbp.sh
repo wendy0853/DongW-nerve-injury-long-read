@@ -9,7 +9,6 @@ tar -xzf "$TAR" -C "$WORKDIR"
 REFDIR="$(find "$WORKDIR" -maxdepth 1 -type d -name 'refdata-gex-GRCm39-2024-A*' | head -n 1)"
 echo "REFDIR=$REFDIR"
 
-REFDIR="/storage1/fs1/jin810/Active/References/GRCm39_10X/GRCm39_2024A_MbpSplitWork/refdata-gex-GRCm39-2024-A"
 GTF_GZ="${REFDIR}/genes/genes.gtf.gz"
 GTF_IN="${REFDIR}/genes/genes.gtf" 
 echo "GTF_GZ=$GTF_GZ"
@@ -22,17 +21,9 @@ ls -lh "$GTF_IN"
 # Confirm expected files exist
 ls -lh "$REFDIR/genes/genes.gtf" "$REFDIR/fasta/genome.fa"
 
-# Set GTF and FA
-GTF_IN="${REFDIR}/genes/genes.gtf"
-FA_IN="${REFDIR}/fasta/genome.fa"
-
 grep -m 1 'gene_name "Mbp"' "$GTF_IN" | head
 
 MBP_GENE_ID="ENSMUSG00000041607"
-
-# Copy the 10x refdata directory
-OUTREF="/storage1/fs1/jin810/Active/References/GRCm39_10X/refdata-gex-GRCm39-2024-A_MbpSplit"
-rsync -a --info=progress2 "${REFDIR}/" "${OUTREF}/"
 
 # Define exon IDs
 cat > MbpGolli.patterns.txt << 'EOF'
@@ -137,8 +128,6 @@ awk -F'\t' '
   END {if (bad) exit 1; else print "OK: all non-comment lines have 9 columns"}
 ' genes.MbpSplit.gtf
 
-# Replace the copied ref GTF with the new one
-cp -f genes.MbpSplit.gtf "${OUTREF}/genes/genes.gtf"
 
 
 
