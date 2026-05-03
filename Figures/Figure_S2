@@ -1,0 +1,230 @@
+################################################################################
+# Supplementary Figure 2 plotting
+#
+# Supplementary outputs:
+#   - PCA plot
+#   - Heatmap of top differentially expressed isoforms
+#
+# Author: Wendy Dong
+# Last updated: May 3, 2026
+################################################################################
+
+# ==============================================================================
+# Setup
+# ==============================================================================
+
+suppressPackageStartupMessages({
+  library(tidyverse)
+  library(DESeq2)
+  library(ggpubr)
+  library(pheatmap)
+  library(rtracklayer)
+  library(clusterProfiler)
+  library(org.Mm.eg.db)
+  library(enrichplot)
+  library(DOSE)
+  library(scales)
+  library(grid)
+})
+
+# ---- User-defined paths ----
+base_dir <- "/Users/wendydong/Documents/WUSM PhD/Long Read RNA Seq/Analysis_Long_Short_updated"
+long_read_dir <- "/Users/wendydong/Documents/WUSM PhD/Long Read RNA Seq/Long_read_results_updated"
+results_dir <- file.path(base_dir, "C3_C7_vs_C0_results_FINAL")
+figure2_dir <- "/Users/wendydong/Documents/WUSM PhD/Writting/Manuscript_Long_Read_RNA/Figures/Figure_2"
+supp_fig_dir <- "/Users/wendydong/Documents/WUSM PhD/Writting/Manuscript_Long_Read_RNA/Figures/Supplementary_Figures"
+
+class_dir <- file.path(long_read_dir, "Filtered_SQANTI3_Results")
+gtf_dir <- file.path(results_dir, "Renamed_gtf")
+
+for (dir_path in c(figure2_dir, supp_fig_dir)) {
+  if (!dir.exists(dir_path)) dir.create(dir_path, recursive = TRUE)
+}
+
+# ---- Input files from DESeq2 script ----
+counts_filtered_path <- file.path(results_dir, "Counts_filtered.tsv")
+dds_path <- file.path(results_dir, "dds_full_object.rds")
+vsd_path <- file.path(results_dir, "vsd_full_object.rds")
+res_c3_path <- file.path(results_dir, "C3_vs_C0_isoform_results.csv")
+res_c7_path <- file.path(results_dir, "C7_vs_C0_isoform_results.csv")
+res_c7_c3_path <- file.path(results_dir, "C7_vs_C3_isoform_results.csv")
+
+stopifnot(file.exists(counts_filtered_path))
+stopifnot(file.exists(dds_path))
+stopifnot(file.exists(vsd_path))
+stopifnot(file.exists(res_c3_path))
+stopifnot(file.exists(res_c7_path))
+stopifnot(file.exists(res_c7_c3_path))
+stopifnot(dir.exists(class_dir))
+stopifnot(dir.exists(gtf_dir))
+
+# ---- Analysis/plot parameters ----
+alpha <- 0.05
+lfc_cut <- 1
+min_count <- 10
+min_reps <- 2
+region_length_tolerance <- 10
+
+comparison_levels <- c("C3 vs. C0", "C7 vs. C0")
+comparison_colors <- c("C3 vs. C0" = "#E69F00", "C7 vs. C0" = "#66BD63")
+condition_colors <- c("C0" = "#0072B2", "C3" = "#E69F00", "C7" = "#66BD63")
+
+# ==============================================================================
+# Shared Functions
+# ==============================================================================
+
+theme_pub <- function(base_size = 7) {
+  theme_minimal(base_size = base_size) +
+    theme(
+      axis.line = element_line(color = "black", linewidth = 0.3),
+      axis.ticks = element_line(color = "black", linewidth = 0.3),
+      axis.ticks.length = unit(0.15, "cm"),
+      panel.grid = element_blank(),
+      axis.text.x = element_text(size = 5.5, vjust = 0.8),
+      axis.text.y = element_text(size = 5),
+      axis.title.x = element_text(size = 6, margin = margin(t = 3)),
+      axis.title.y = element_text(size = 6, margin = margin(r = 3)),
+      plot.title = element_text(size = 7, face = "bold", hjust = 0.5, margin = margin(b = 4)),
+      legend.key.size = unit(3, "mm"),
+      legend.text = element_text(size = 5),
+      legend.title = element_blank(),
+      plot.margin = margin(t = 8, r = 4, b = 4, l = 4, unit = "mm")
+    )
+}
+
+save_panel <- function(plot, filename, width_mm, height_mm, out_dir = figure2_dir) {
+  ggsave(
+    filename = file.path(out_dir, filename),
+    plot = plot,
+    width = width_mm,
+    height = height_mm,
+    units = "mm",
+    dpi = 600,
+    bg = "white"
+  )
+}
+
+pct_lab_frac <- function(x) sprintf("%.1f%%", 100 * x)
+pct_lab_value <- function(x) sprintf("%.1f%%", x)
+
+recode_contrast <- function(x) {
+  recode(x, "C3_vs_C0" = "C3 vs. C0", "C7_vs_C0" = "C7 vs. C0")
+}
+
+standardize_sample_name <- function(x) {
+  case_when(
+    str_detect(x, "^C0_Control_") ~ str_replace(x, "^C0_Control_(\\d+)$", "C0_Sciatic_\\1"),
+    str_detect(x, "^C3_Injured_") ~ str_replace(x, "^C3_Injured_(\\d+)$", "C3_Injured_Sciatic_\\1"),
+    str_detect(x, "^C7_Injured_") ~ str_replace(x, "^C7_Injured_(\\d+)$", "C7_Injured_Sciatic_\\1"),
+    TRUE ~ x
+  )
+}
+
+# ==============================================================================
+# Load DESeq2 outputs
+# ==============================================================================
+
+counts_filtered <- read_tsv(counts_filtered_path, show_col_types = FALSE)
+dds <- readRDS(dds_path)
+vsd <- readRDS(vsd_path)
+
+res_list <- list(
+  C3_vs_C0 = read_csv(res_c3_path, show_col_types = FALSE),
+  C7_vs_C0 = read_csv(res_c7_path, show_col_types = FALSE),
+  C7_vs_C3 = read_csv(res_c7_c3_path, show_col_types = FALSE)
+)
+
+get_significant_det <- function(res, contrast_label, padj_cut = alpha, lfc = lfc_cut) {
+  res %>%
+    mutate(contrast = contrast_label) %>%
+    filter(!is.na(padj), padj < padj_cut, abs(log2FoldChange) >= lfc) %>%
+    transmute(
+      contrast,
+      contrast_pretty = recode_contrast(contrast),
+      transcript_id,
+      transcript_symbol,
+      gene_symbol,
+      log2FoldChange,
+      padj,
+      mean_den
+    ) %>%
+    distinct(transcript_symbol, contrast, .keep_all = TRUE)
+}
+
+resp_iso <- bind_rows(
+  get_significant_det(res_list$C3_vs_C0, "C3_vs_C0"),
+  get_significant_det(res_list$C7_vs_C0, "C7_vs_C0")
+) %>%
+  mutate(contrast_pretty = factor(contrast_pretty, levels = comparison_levels))
+
+write_csv(resp_iso, file.path(results_dir, "Fig2_significant_DETs_source_data.csv"))
+
+# ==============================================================================
+# Supplementary PCA plot
+# ==============================================================================
+
+pca_data <- plotPCA(vsd, intgroup = c("time_point", "treatment"), returnData = TRUE)
+percent_var <- round(100 * attr(pca_data, "percentVar"))
+
+pca_plot <- ggplot(pca_data, aes(PC1, PC2, color = time_point, shape = treatment)) +
+  geom_point(size = 3) +
+  scale_color_manual(values = condition_colors) +
+  labs(
+    x = paste0("PC1: ", percent_var[1], "%"),
+    y = paste0("PC2: ", percent_var[2], "%"),
+    title = "PCA: Nerve Crush Injury Isoforms"
+  ) +
+  theme_pub()
+
+pca_plot
+save_panel(pca_plot, "FigS2_PCA_Plot.png", width_mm = 70, height_mm = 70, out_dir = supp_fig_dir)
+
+# ==============================================================================
+# Supplementary heatmap of top DETs
+# ==============================================================================
+
+pick_top_tx <- function(res, n = 25, padj_cut = alpha, lfc = lfc_cut) {
+  res %>%
+    filter(!is.na(padj), padj < padj_cut, abs(log2FoldChange) >= lfc) %>%
+    mutate(score = abs(log2FoldChange) * -log10(padj)) %>%
+    arrange(desc(score)) %>%
+    slice_head(n = n) %>%
+    pull(transcript_id)
+}
+
+top_tx <- unique(c(
+  pick_top_tx(res_list$C3_vs_C0),
+  pick_top_tx(res_list$C7_vs_C0),
+  pick_top_tx(res_list$C7_vs_C3)
+))
+
+tx_map <- bind_rows(
+  res_list$C3_vs_C0 %>% select(transcript_id, transcript_symbol),
+  res_list$C7_vs_C0 %>% select(transcript_id, transcript_symbol),
+  res_list$C7_vs_C3 %>% select(transcript_id, transcript_symbol)
+) %>%
+  distinct(transcript_id, .keep_all = TRUE) %>%
+  filter(transcript_id %in% top_tx) %>%
+  mutate(transcript_symbol = if_else(is.na(transcript_symbol) | transcript_symbol == "", transcript_id, transcript_symbol))
+
+heat_mat <- assay(vsd)[tx_map$transcript_id, , drop = FALSE]
+heat_mat <- heat_mat - rowMeans(heat_mat)
+rownames(heat_mat) <- make.unique(tx_map$transcript_symbol)
+
+ann_col <- data.frame(
+  Time = dds$time_point,
+  Treatment = dds$treatment,
+  row.names = colnames(heat_mat)
+)
+
+heat_plot <- pheatmap(
+  heat_mat,
+  annotation_col = ann_col,
+  main = "Top Differentially Expressed Isoforms",
+  clustering_method = "ward.D2",
+  angle_col = 315,
+  silent = TRUE
+)
+
+save_panel(heat_plot$gtable, "FigS2_Heatmap.png", width_mm = 150, height_mm = 300, out_dir = supp_fig_dir)
+
