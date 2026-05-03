@@ -1,5 +1,5 @@
 ################################################################################
-# Figure 2 DESeq2 analysis: differential transcript expression after nerve injury
+# DESeq2 analysis: differential transcript expression after nerve injury
 #
 # Summary:
 #   This script performs count filtering, DESeq2 differential transcript expression
