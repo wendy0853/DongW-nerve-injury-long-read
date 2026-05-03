@@ -183,7 +183,7 @@ count_det_direction <- function(res, comparison_label, padj_cut = alpha, lfc = l
       )
     ) %>%
     filter(!is.na(direction)) %>%
-    count(direction) %>%
+    dplyr::count(direction) %>%
     mutate(
       n_signed = if_else(direction == "Down", -n, n),
       comparison = factor(comparison_label, levels = comparison_levels)
@@ -233,7 +233,7 @@ write_csv(det_diverging, file.path(results_dir, "Fig2A_DET_distribution_source_d
 # ==============================================================================
 
 multi_det_gene_table <- resp_iso %>%
-  count(contrast_pretty, gene_symbol, name = "n_det_isoforms") %>%
+  dplyr::count(contrast_pretty, gene_symbol, name = "n_det_isoforms") %>%
   mutate(
     det_gene_class = if_else(n_det_isoforms >= 2, "≥2 DETs", "1 DET"),
     det_gene_class = factor(det_gene_class, levels = c("≥2 DETs", "1 DET"))
@@ -241,12 +241,12 @@ multi_det_gene_table <- resp_iso %>%
 
 multi_det_genes <- multi_det_gene_table %>%
   filter(det_gene_class == "≥2 DETs") %>%
-  select(gene_symbol, contrast_pretty)
+  dplyr::select(gene_symbol, contrast_pretty)
 
 write_csv(multi_det_genes, file.path(results_dir, "DET_multi.csv"))
 
 multi_det_plot_df <- multi_det_gene_table %>%
-  count(contrast_pretty, det_gene_class) %>%
+  dplyr::count(contrast_pretty, det_gene_class) %>%
   group_by(contrast_pretty) %>%
   mutate(frac = n / sum(n)) %>%
   ungroup()
@@ -423,7 +423,7 @@ baseline_tbl <- counts_filtered %>%
       TRUE ~ NA_character_
     )
   ) %>%
-  select(
+  dplyr::select(
     transcript_id,
     transcript_symbol,
     gene_symbol,
@@ -446,7 +446,7 @@ det_annot <- resp_iso %>%
 write_csv(det_annot, file.path(results_dir, "Fig2D_DET_emergence_annotated_source_data.csv"))
 
 emergence_plot_df <- det_annot %>%
-  count(contrast_pretty, baseline_status) %>%
+  dplyr::count(contrast_pretty, baseline_status) %>%
   group_by(contrast_pretty) %>%
   mutate(frac = n / sum(n)) %>%
   ungroup()
@@ -491,7 +491,7 @@ write_csv(det_emerge_remodel, file.path(results_dir, "DET_emerged_remodeling.csv
 
 det_emerge_activation <- det_annot %>%
   filter(baseline_status == "Emerged: Activation") %>%
-  select(transcript_symbol, gene_symbol, contrast_pretty)
+  dplyr::select(transcript_symbol, gene_symbol, contrast_pretty)
 
 write_csv(det_emerge_activation, file.path(results_dir, "DET_emerged_activation.csv"))
 
@@ -623,7 +623,7 @@ baseline_tbl_structure <- counts_for_structure %>%
       TRUE ~ NA_character_
     )
   ) %>%
-  select(tx_id, gene_symbol, n_C0_ge_min, iso_expressed_baseline, gene_has_any_baseline_isoform, baseline_status) %>%
+  dplyr::select(tx_id, gene_symbol, n_C0_ge_min, iso_expressed_baseline, gene_has_any_baseline_isoform, baseline_status) %>%
   distinct(tx_id, .keep_all = TRUE)
 
 c0_dominant_isoform <- count_long %>%
@@ -688,7 +688,7 @@ structure_qc <- isoform_structure_df %>%
 write_csv(structure_qc, file.path(results_dir, "Fig2E_UTR_CDS_remodeling_QC.csv"))
 
 remodel_plot_df <- isoform_structure_df %>%
-  count(contrast_pretty, remodel_class, name = "n_isoforms") %>%
+  dplyr::count(contrast_pretty, remodel_class, name = "n_isoforms") %>%
   complete(
     contrast_pretty = comparison_levels,
     remodel_class = c("Non-coding", "UTR only", "CDS only", "UTR + CDS"),
