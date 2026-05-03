@@ -1,10 +1,6 @@
 ################################################################################
 # Figure 1: Long-read RNA-seq isoform characterization
 #
-# Purpose:
-#   Generate publication-ready panels for Figure 1 using filtered SQANTI3 outputs
-#   and per-sample SQANTI3 category summaries.
-#
 # Panels:
 #   B: Isoform length distribution
 #   C: Exon count distribution
