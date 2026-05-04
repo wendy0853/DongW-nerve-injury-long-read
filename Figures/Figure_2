@@ -22,73 +22,79 @@
 # ==============================================================================
 
 suppressPackageStartupMessages({
-  library(tidyverse)
-  library(DESeq2)
-  library(ggpubr)
-  library(pheatmap)
   library(rtracklayer)
   library(clusterProfiler)
   library(org.Mm.eg.db)
-  library(enrichplot)
-  library(DOSE)
+  library(tidyverse)
   library(scales)
   library(grid)
 })
 
-# ---- User-defined paths ----
+# ---- User-defined paths -------------------------------------------------------
 base_dir <- "/Users/wendydong/Documents/WUSM PhD/Long Read RNA Seq/Analysis_Long_Short_updated"
 long_read_dir <- "/Users/wendydong/Documents/WUSM PhD/Long Read RNA Seq/Long_read_results_updated"
-results_dir <- file.path(base_dir, "C3_C7_vs_C0_results_FINAL")
 figure2_dir <- "/Users/wendydong/Documents/WUSM PhD/Writting/Manuscript_Long_Read_RNA/Figures/Figure_2"
 supp_fig_dir <- "/Users/wendydong/Documents/WUSM PhD/Writting/Manuscript_Long_Read_RNA/Figures/Supplementary_Figures"
 
+results_dir <- file.path(base_dir, "C3_C7_vs_C0_results_FINAL")
 class_dir <- file.path(long_read_dir, "Filtered_SQANTI3_Results")
 gtf_dir <- file.path(results_dir, "Renamed_gtf")
+ref_gtf_path <- file.path(gtf_dir, "Mus_musculus.GRCm39.115.chr.gtf")
 
-for (dir_path in c(figure2_dir, supp_fig_dir)) {
-  if (!dir.exists(dir_path)) dir.create(dir_path, recursive = TRUE)
-}
+output_dirs <- c(figure2_dir, supp_fig_dir)
+purrr::walk(output_dirs, ~ dir.create(.x, recursive = TRUE, showWarnings = FALSE))
 
-# ---- Input files from DESeq2 script ----
+# ---- Input files --------------------------------------------------------------
 counts_filtered_path <- file.path(results_dir, "Counts_filtered.tsv")
-dds_path <- file.path(results_dir, "dds_full_object.rds")
-vsd_path <- file.path(results_dir, "vsd_full_object.rds")
 res_c3_path <- file.path(results_dir, "C3_vs_C0_isoform_results.csv")
 res_c7_path <- file.path(results_dir, "C7_vs_C0_isoform_results.csv")
 res_c7_c3_path <- file.path(results_dir, "C7_vs_C3_isoform_results.csv")
 
-stopifnot(file.exists(counts_filtered_path))
-stopifnot(file.exists(dds_path))
-stopifnot(file.exists(vsd_path))
-stopifnot(file.exists(res_c3_path))
-stopifnot(file.exists(res_c7_path))
-stopifnot(file.exists(res_c7_c3_path))
-stopifnot(dir.exists(class_dir))
-stopifnot(dir.exists(gtf_dir))
+required_files <- c(
+  counts_filtered_path,
+  res_c3_path,
+  res_c7_path,
+  res_c7_c3_path,
+  ref_gtf_path
+)
 
-# ---- Analysis/plot parameters ----
-alpha <- 0.05
-lfc_cut <- 1
+missing_files <- required_files[!file.exists(required_files)]
+if (length(missing_files) > 0) {
+  stop("Missing required files:\n", paste(missing_files, collapse = "\n"), call. = FALSE)
+}
+
+if (!dir.exists(class_dir)) stop("Missing SQANTI3 classification directory: ", class_dir)
+if (!dir.exists(gtf_dir)) stop("Missing renamed GTF directory: ", gtf_dir)
+
+# ---- Analysis parameters ------------------------------------------------------
+padj_cutoff <- 0.05
+lfc_cutoff <- 1
 min_count <- 10
 min_reps <- 2
-region_length_tolerance <- 10
 
 comparison_levels <- c("C3 vs. C0", "C7 vs. C0")
 comparison_colors <- c("C3 vs. C0" = "#E69F00", "C7 vs. C0" = "#66BD63")
-condition_colors <- c("C0" = "#0072B2", "C3" = "#E69F00", "C7" = "#66BD63")
+
+remodel_class_levels <- c(
+  "UTR Only",
+  "Noncoding",
+  "ORF Loss",
+  "ORF Gain",
+  "ORF Modification"
+)
 
 # ==============================================================================
-# Shared functions
+# Helper functions
 # ==============================================================================
 
 theme_pub <- function(base_size = 7) {
-  theme_minimal(base_size = base_size) +
+  theme_classic(base_size = base_size) +
     theme(
       axis.line = element_line(color = "black", linewidth = 0.3),
       axis.ticks = element_line(color = "black", linewidth = 0.3),
       axis.ticks.length = unit(0.15, "cm"),
       panel.grid = element_blank(),
-      axis.text.x = element_text(size = 5.5, vjust = 0.8),
+      axis.text.x = element_text(size = 5, hjust = 0.5, vjust = 0.5),
       axis.text.y = element_text(size = 5),
       axis.title.x = element_text(size = 6, margin = margin(t = 3)),
       axis.title.y = element_text(size = 6, margin = margin(r = 3)),
@@ -116,7 +122,7 @@ pct_lab_frac <- function(x) sprintf("%.1f%%", 100 * x)
 pct_lab_value <- function(x) sprintf("%.1f%%", x)
 
 recode_contrast <- function(x) {
-  recode(x, "C3_vs_C0" = "C3 vs. C0", "C7_vs_C0" = "C7 vs. C0")
+  dplyr::recode(x, "C3_vs_C0" = "C3 vs. C0", "C7_vs_C0" = "C7 vs. C0")
 }
 
 standardize_sample_name <- function(x) {
@@ -128,24 +134,10 @@ standardize_sample_name <- function(x) {
   )
 }
 
-# ==============================================================================
-# Load DESeq2 outputs
-# ==============================================================================
-
-counts_filtered <- read_tsv(counts_filtered_path, show_col_types = FALSE)
-dds <- readRDS(dds_path)
-vsd <- readRDS(vsd_path)
-
-res_list <- list(
-  C3_vs_C0 = read_csv(res_c3_path, show_col_types = FALSE),
-  C7_vs_C0 = read_csv(res_c7_path, show_col_types = FALSE),
-  C7_vs_C3 = read_csv(res_c7_c3_path, show_col_types = FALSE)
-)
-
-get_significant_det <- function(res, contrast_label, padj_cut = alpha, lfc = lfc_cut) {
+get_significant_det <- function(res, contrast_label, padj_cut = padj_cutoff, lfc = lfc_cutoff) {
   res %>%
     mutate(contrast = contrast_label) %>%
-    filter(!is.na(padj), padj < padj_cut, abs(log2FoldChange) >= lfc) %>%
+    filter(!is.na(padj), padj <= padj_cut, abs(log2FoldChange) >= lfc) %>%
     transmute(
       contrast,
       contrast_pretty = recode_contrast(contrast),
@@ -159,22 +151,9 @@ get_significant_det <- function(res, contrast_label, padj_cut = alpha, lfc = lfc
     distinct(transcript_symbol, contrast, .keep_all = TRUE)
 }
 
-resp_iso <- bind_rows(
-  get_significant_det(res_list$C3_vs_C0, "C3_vs_C0"),
-  get_significant_det(res_list$C7_vs_C0, "C7_vs_C0")
-) %>%
-  mutate(contrast_pretty = factor(contrast_pretty, levels = comparison_levels))
-
-write_csv(resp_iso, file.path(results_dir, "Fig2_significant_DETs_source_data.csv"))
-
-
-# ==============================================================================
-# Figure 2A: DET distribution by direction
-# ==============================================================================
-
-count_det_direction <- function(res, comparison_label, padj_cut = alpha, lfc = lfc_cut) {
+count_det_direction <- function(res, comparison_label, padj_cut = padj_cutoff, lfc = lfc_cutoff) {
   res %>%
-    filter(!is.na(padj), padj < padj_cut, abs(log2FoldChange) >= lfc) %>%
+    filter(!is.na(padj), padj <= padj_cut, abs(log2FoldChange) >= lfc) %>%
     mutate(
       direction = case_when(
         log2FoldChange > lfc ~ "Up",
@@ -189,6 +168,180 @@ count_det_direction <- function(res, comparison_label, padj_cut = alpha, lfc = l
       comparison = factor(comparison_label, levels = comparison_levels)
     )
 }
+
+get_baseline_status <- function(counts_tbl, c0_cols, min_count = 10, min_reps = 2) {
+  counts_tbl %>%
+    mutate(
+      n_C0_ge_min = rowSums(across(all_of(c0_cols), ~ .x >= min_count), na.rm = TRUE),
+      iso_expressed_baseline = n_C0_ge_min >= min_reps
+    ) %>%
+    group_by(gene_symbol) %>%
+    mutate(gene_has_any_baseline_isoform = any(iso_expressed_baseline)) %>%
+    ungroup() %>%
+    mutate(
+      baseline_status = case_when(
+        iso_expressed_baseline ~ "Expressed at Baseline",
+        !iso_expressed_baseline & !gene_has_any_baseline_isoform ~ "Emerged: Activation",
+        !iso_expressed_baseline & gene_has_any_baseline_isoform ~ "Emerged: Remodeling",
+        TRUE ~ NA_character_
+      )
+    )
+}
+
+to_entrez <- function(symbols) {
+  suppressMessages(
+    bitr(
+      unique(symbols),
+      fromType = "SYMBOL",
+      toType = "ENTREZID",
+      OrgDb = org.Mm.eg.db
+    )
+  ) %>%
+    pull(ENTREZID) %>%
+    unique()
+}
+
+parse_gene_ratio <- function(x) {
+  purrr::map_dbl(x, function(ratio) {
+    parts <- str_split(ratio, "/", simplify = TRUE)
+    as.numeric(parts[1]) / as.numeric(parts[2])
+  })
+}
+
+plot_stacked_percent <- function(plot_df, x_var, fill_var, y_lab, title) {
+  ggplot(plot_df, aes(x = {{ x_var }}, y = frac, fill = {{ fill_var }})) +
+    geom_col(width = 0.9, color = "black", linewidth = 0.25) +
+    geom_text(aes(label = pct_lab_frac(frac)), position = position_stack(vjust = 0.5), size = 2) +
+    scale_y_continuous(labels = percent_format(accuracy = 1), expand = c(0, 0)) +
+    labs(x = NULL, y = y_lab, title = title, fill = NULL) +
+    theme_pub() +
+    theme(
+      legend.position = "bottom",
+      legend.box = "horizontal",
+      legend.text = element_text(size = 6),
+      legend.spacing.y = unit(1, "mm"),
+      legend.spacing.x = unit(1, "mm"),
+      legend.box.margin = margin(t = -2, r = 0, b = 0, l = 0, unit = "mm")
+    )
+}
+
+# Split exons into CDS and UTR segments using ORF genomic boundaries for novel isoforms
+split_exon_by_orf <- function(exon_row) {
+  exon <- as_tibble(exon_row)
+  cds_start <- exon$CDS_genomic_start
+  cds_end <- exon$CDS_genomic_end
+  s <- exon$start
+  e <- exon$end
+  strand <- as.character(exon$strand)
+  
+  if (is.na(cds_start) || is.na(cds_end)) {
+    exon$region_type <- "UTR"
+    return(exon)
+  }
+  
+  cds_low <- min(cds_start, cds_end)
+  cds_high <- max(cds_start, cds_end)
+  parts <- list()
+  
+  if (strand == "+") {
+    if (s < cds_low) {
+      parts[[length(parts) + 1]] <- exon %>% mutate(end = min(e, cds_low - 1), region_type = "5UTR")
+    }
+    if (e >= cds_low && s <= cds_high) {
+      parts[[length(parts) + 1]] <- exon %>% mutate(start = max(s, cds_low), end = min(e, cds_high), region_type = "CDS")
+    }
+    if (e > cds_high) {
+      parts[[length(parts) + 1]] <- exon %>% mutate(start = max(s, cds_high + 1), region_type = "3UTR")
+    }
+  } else if (strand == "-") {
+    if (e > cds_high) {
+      parts[[length(parts) + 1]] <- exon %>% mutate(start = max(s, cds_high + 1), region_type = "5UTR")
+    }
+    if (e >= cds_low && s <= cds_high) {
+      parts[[length(parts) + 1]] <- exon %>% mutate(start = max(s, cds_low), end = min(e, cds_high), region_type = "CDS")
+    }
+    if (s < cds_low) {
+      parts[[length(parts) + 1]] <- exon %>% mutate(end = min(e, cds_low - 1), region_type = "3UTR")
+    }
+  }
+  
+  bind_rows(parts) %>% filter(end >= start)
+}
+
+compare_tx_to_ref <- function(tx, ref_tx, structure_tbl) {
+  tx_regions <- structure_tbl %>% filter(tx_id == tx)
+  ref_regions <- structure_tbl %>% filter(tx_id == ref_tx)
+  
+  if (nrow(tx_regions) == 0 || nrow(ref_regions) == 0) {
+    return(tibble(
+      tx_id = tx,
+      ref_tx = ref_tx,
+      cds_changed = NA,
+      utr_changed = NA,
+      structure_change_class = "Coding-Noncoding Switch"
+    ))
+  }
+  
+  cds_changed <- !identical(
+    tx_regions %>%
+      filter(region_type == "CDS") %>%
+      arrange(seqnames, start, end, strand) %>%
+      select(seqnames, start, end, strand),
+    ref_regions %>%
+      filter(region_type == "CDS") %>%
+      arrange(seqnames, start, end, strand) %>%
+      select(seqnames, start, end, strand)
+  )
+  
+  utr_changed <- !identical(
+    tx_regions %>%
+      filter(region_type == "UTR") %>%
+      arrange(seqnames, start, end, strand) %>%
+      select(seqnames, start, end, strand),
+    ref_regions %>%
+      filter(region_type == "UTR") %>%
+      arrange(seqnames, start, end, strand) %>%
+      select(seqnames, start, end, strand)
+  )
+  
+  tibble(
+    tx_id = tx,
+    ref_tx = ref_tx,
+    cds_changed = cds_changed,
+    utr_changed = utr_changed,
+    structure_change_class = case_when(
+      cds_changed & utr_changed ~ "CDS + UTR",
+      cds_changed & !utr_changed ~ "CDS only",
+      !cds_changed & utr_changed ~ "UTR only",
+      !cds_changed & !utr_changed ~ "No CDS/UTR change",
+      TRUE ~ NA_character_
+    )
+  )
+}
+
+# ==============================================================================
+# Load data
+# ==============================================================================
+
+counts_filtered <- read_tsv(counts_filtered_path, show_col_types = FALSE)
+
+res_list <- list(
+  C3_vs_C0 = read_csv(res_c3_path, show_col_types = FALSE),
+  C7_vs_C0 = read_csv(res_c7_path, show_col_types = FALSE),
+  C7_vs_C3 = read_csv(res_c7_c3_path, show_col_types = FALSE)
+)
+
+resp_iso <- bind_rows(
+  get_significant_det(res_list$C3_vs_C0, "C3_vs_C0"),
+  get_significant_det(res_list$C7_vs_C0, "C7_vs_C0")
+) %>%
+  mutate(contrast_pretty = factor(contrast_pretty, levels = comparison_levels))
+
+write_csv(resp_iso, file.path(results_dir, "Fig2_significant_DETs_source_data.csv"))
+
+# ==============================================================================
+# Figure 2A: DET distribution by direction
+# ==============================================================================
 
 det_diverging <- bind_rows(
   count_det_direction(res_list$C3_vs_C0, "C3 vs. C0"),
@@ -222,10 +375,8 @@ p_det_distribution <- ggplot(det_diverging, aes(x = comparison, y = n_signed, fi
     axis.text.y = element_text(size = 6, angle = 90, hjust = 0.5),
     plot.margin = margin(t = 8, r = 2, b = 4, l = 4, unit = "mm")
   )
-
 p_det_distribution
 save_panel(p_det_distribution, "Fig2A_DET_Distribution.png", width_mm = 40, height_mm = 60)
-
 write_csv(det_diverging, file.path(results_dir, "Fig2A_DET_distribution_source_data.csv"))
 
 # ==============================================================================
@@ -243,106 +394,64 @@ multi_det_genes <- multi_det_gene_table %>%
   filter(det_gene_class == "≥2 DETs") %>%
   dplyr::select(gene_symbol, contrast_pretty)
 
-write_csv(multi_det_genes, file.path(results_dir, "DET_multi.csv"))
-
 multi_det_plot_df <- multi_det_gene_table %>%
   dplyr::count(contrast_pretty, det_gene_class) %>%
   group_by(contrast_pretty) %>%
   mutate(frac = n / sum(n)) %>%
   ungroup()
 
-p_multi_det_genes <- ggplot(multi_det_plot_df, aes(x = contrast_pretty, y = frac, fill = det_gene_class)) +
-  geom_col(width = 0.9, color = "black", linewidth = 0.25) +
-  geom_text(aes(label = pct_lab_frac(frac)), position = position_stack(vjust = 0.5), size = 2) +
-  scale_y_continuous(labels = percent_format(accuracy = 1), expand = c(0, 0)) +
-  labs(
-    x = NULL,
-    y = "Percentage of DET-associated genes",
-    title = "Genes with Multiple DETs",
-    fill = NULL
-  ) +
-  theme_classic(base_size = 7) +
-  theme(
-    legend.position = "bottom",
-    legend.box = "horizontal",
-    axis.line = element_line(color = "black", linewidth = 0.3),
-    axis.ticks = element_line(color = "black", linewidth = 0.3),
-    axis.ticks.length = unit(0.15, "cm"),
-    panel.grid = element_blank(),
-    axis.text.x = element_text(size = 5, hjust = 0.5, vjust = 0.5),
-    axis.text.y = element_text(size = 5),
-    axis.title.y = element_text(size = 6, margin = margin(r = 3)),
-    plot.title = element_text(size = 7, face = "bold", hjust = 0.5, margin = margin(b = 4)),
-    legend.key.size = unit(3, "mm"),
-    legend.text = element_text(size = 6),
-    legend.spacing.y = unit(1, "mm"),
-    legend.spacing.x = unit(1, "mm"),
-    legend.box.margin = margin(t = -2, r = 0, b = 0, l = 0, unit = "mm"),
-    plot.margin = margin(t = 8, r = 2, b = 4, l = 4, unit = "mm")
-  )
-
+p_multi_det_genes <- plot_stacked_percent(
+  plot_df = multi_det_plot_df,
+  x_var = contrast_pretty,
+  fill_var = det_gene_class,
+  y_lab = "Percentage of DET-associated genes",
+  title = "Genes with Multiple DETs"
+)
 p_multi_det_genes
 save_panel(p_multi_det_genes, "Fig2B_MultiDET_Genes.png", width_mm = 50, height_mm = 65)
-
+write_csv(multi_det_genes, file.path(results_dir, "DET_multi.csv"))
 write_csv(multi_det_plot_df, file.path(results_dir, "Fig2B_MultiDET_genes_source_data.csv"))
 
 # ==============================================================================
 # Figure 2C: GO enrichment of multi-DET genes
 # ==============================================================================
 
-to_entrez <- function(symbols) {
-  bitr(
-    unique(symbols),
-    fromType = "SYMBOL",
-    toType = "ENTREZID",
-    OrgDb = org.Mm.eg.db
-  ) %>%
-    pull(ENTREZID) %>%
-    unique()
-}
-
 run_multi_det_go <- function(target_contrast_pretty, top_n = 8, simplify_cutoff = 0.6) {
   target_genes <- multi_det_genes %>%
     filter(contrast_pretty == target_contrast_pretty) %>%
     distinct(gene_symbol) %>%
-    pull(gene_symbol) %>%
-    unique()
+    pull(gene_symbol)
   
-  universe_genes <- resp_iso %>%
+  universe_genes <- bind_rows(
+    res_list$C3_vs_C0 %>% mutate(contrast_pretty = "C3 vs. C0"),
+    res_list$C7_vs_C0 %>% mutate(contrast_pretty = "C7 vs. C0")
+  ) %>%
     filter(contrast_pretty == target_contrast_pretty) %>%
     pull(gene_symbol) %>%
     unique()
   
-  gene_entrez <- to_entrez(target_genes)
-  universe_entrez <- to_entrez(universe_genes)
-  
   ego <- enrichGO(
-    gene = gene_entrez,
-    universe = universe_entrez,
+    gene = to_entrez(target_genes),
+    universe = to_entrez(universe_genes),
     OrgDb = org.Mm.eg.db,
     keyType = "ENTREZID",
     ont = "BP",
     pAdjustMethod = "BH",
-    pvalueCutoff = alpha,
-    qvalueCutoff = alpha,
+    pvalueCutoff = padj_cutoff,
+    qvalueCutoff = padj_cutoff,
     readable = TRUE
   )
   
-  ego <- simplify(ego, cutoff = simplify_cutoff, by = "p.adjust", select_fun = min)
-  
-  ego@result %>%
+  simplify(ego, cutoff = simplify_cutoff, by = "p.adjust", select_fun = min)@result %>%
     arrange(p.adjust) %>%
     slice_head(n = top_n)
 }
 
-plot_go_dot_from_df <- function(plot_df, title, dot_color, fdr_max = alpha) {
+plot_go_dot_from_df <- function(plot_df, title, dot_color, fdr_max = padj_cutoff) {
   df <- plot_df %>%
     { if (!is.null(fdr_max)) filter(., p.adjust <= fdr_max) else . } %>%
     mutate(
-      gene_ratio_num = map_dbl(GeneRatio, function(x) {
-        parts <- str_split(x, "/", simplify = TRUE)
-        as.numeric(parts[1]) / as.numeric(parts[2])
-      }),
+      gene_ratio_num = parse_gene_ratio(GeneRatio),
       Description = str_wrap(Description, width = 40),
       neglog10_fdr = -log10(p.adjust + 1e-300)
     ) %>%
@@ -360,13 +469,10 @@ plot_go_dot_from_df <- function(plot_df, title, dot_color, fdr_max = alpha) {
       color = expression(-log[10]("adj. P")),
       size = "\nCount"
     ) +
-    theme_minimal(base_size = 7) +
+    theme_pub() +
     theme(
+      panel.grid.major = element_line(linewidth = 0.15, color = "grey90"),
       panel.grid.minor = element_blank(),
-      axis.line = element_line(color = "black", linewidth = 0.3),
-      axis.ticks = element_line(color = "black", linewidth = 0.3),
-      axis.ticks.length = unit(0.15, "cm"),
-      plot.title = element_text(size = 7, face = "bold", hjust = 0.5),
       axis.text.x = element_text(size = 5),
       axis.text.y = element_text(size = 5),
       axis.title = element_text(size = 5),
@@ -384,45 +490,30 @@ plot_go_dot_from_df <- function(plot_df, title, dot_color, fdr_max = alpha) {
 
 # Default Figure 2C panel shown for C7 multi-DET genes.
 go_c7_df <- run_multi_det_go("C7 vs. C0", top_n = 8)
-write_csv(go_c7_df, file.path(results_dir, "Fig2C_C7_MultiDET_GO_source_data.csv"))
 
 p_go_c7 <- plot_go_dot_from_df(
   plot_df = go_c7_df,
   title = "GO: C7 Multi-DET Genes",
   dot_color = comparison_colors[["C7 vs. C0"]]
 )
-
 p_go_c7
 save_panel(p_go_c7, "Fig2C_C7_MultiDET_GO.png", width_mm = 62, height_mm = 55)
+write_csv(go_c7_df, file.path(results_dir, "Fig2C_C7_MultiDET_GO_source_data.csv"))
 
 # Optional matched C3 panel.
 # go_c3_df <- run_multi_det_go("C3 vs. C0", top_n = 8)
-# write_csv(go_c3_df, file.path(results_dir, "Fig2C_C3_MultiDET_GO_source_data.csv"))
 # p_go_c3 <- plot_go_dot_from_df(go_c3_df, "GO: C3 Multi-DET Genes", comparison_colors[["C3 vs. C0"]])
 # save_panel(p_go_c3, "Fig2C_C3_MultiDET_GO.png", width_mm = 62, height_mm = 55)
+# write_csv(go_c3_df, file.path(results_dir, "Fig2C_C3_MultiDET_GO_source_data.csv"))
 
 # ==============================================================================
 # Figure 2D: Emergence categories of DETs
 # ==============================================================================
 
-C0_cols <- names(counts_filtered)[str_detect(names(counts_filtered), "^C0")]
+c0_cols <- names(counts_filtered)[str_detect(names(counts_filtered), "^C0")]
+if (length(c0_cols) == 0) stop("No C0 columns detected in counts table.")
 
-baseline_tbl <- counts_filtered %>%
-  mutate(
-    n_C0_ge_min = rowSums(across(all_of(C0_cols), ~ .x >= min_count), na.rm = TRUE),
-    iso_expressed_baseline = n_C0_ge_min >= min_reps
-  ) %>%
-  group_by(gene_symbol) %>%
-  mutate(gene_has_any_baseline_isoform = any(iso_expressed_baseline)) %>%
-  ungroup() %>%
-  mutate(
-    baseline_status = case_when(
-      iso_expressed_baseline ~ "Expressed at Baseline",
-      !iso_expressed_baseline & !gene_has_any_baseline_isoform ~ "Emerged: Activation",
-      !iso_expressed_baseline & gene_has_any_baseline_isoform ~ "Emerged: Remodeling",
-      TRUE ~ NA_character_
-    )
-  ) %>%
+baseline_tbl <- get_baseline_status(counts_filtered, c0_cols, min_count, min_reps) %>%
   dplyr::select(
     transcript_id,
     transcript_symbol,
@@ -443,163 +534,44 @@ det_annot <- resp_iso %>%
     )
   )
 
-write_csv(det_annot, file.path(results_dir, "Fig2D_DET_emergence_annotated_source_data.csv"))
-
 emergence_plot_df <- det_annot %>%
   dplyr::count(contrast_pretty, baseline_status) %>%
   group_by(contrast_pretty) %>%
   mutate(frac = n / sum(n)) %>%
   ungroup()
 
-p_emergence <- ggplot(emergence_plot_df, aes(x = contrast_pretty, y = frac, fill = baseline_status)) +
-  geom_col(width = 0.9, color = "black", linewidth = 0.25) +
-  geom_text(aes(label = pct_lab_frac(frac)), position = position_stack(vjust = 0.5), size = 2) +
-  scale_y_continuous(labels = percent_format(accuracy = 1), expand = c(0, 0)) +
-  scale_fill_discrete(labels = function(x) str_wrap(x, width = 18)) +
-  labs(x = NULL, y = "Percentage of DETs", title = "Emergence of DETs", fill = NULL) +
-  theme_classic(base_size = 7) +
-  theme(
-    legend.position = "bottom",
-    legend.box = "horizontal",
-    axis.line = element_line(color = "black", linewidth = 0.3),
-    axis.ticks = element_line(color = "black", linewidth = 0.3),
-    axis.ticks.length = unit(0.15, "cm"),
-    panel.grid = element_blank(),
-    axis.text.x = element_text(size = 5, hjust = 0.5, vjust = 0.5),
-    axis.text.y = element_text(size = 5),
-    axis.title.y = element_text(size = 6, margin = margin(r = 3)),
-    plot.title = element_text(size = 7, face = "bold", hjust = 0.5, margin = margin(b = 4)),
-    legend.key.size = unit(3, "mm"),
-    legend.text = element_text(size = 6),
-    legend.spacing.y = unit(1, "mm"),
-    legend.spacing.x = unit(1, "mm"),
-    legend.box.margin = margin(t = -2, r = 0, b = 0, l = 0, unit = "mm"),
-    plot.margin = margin(t = 8, r = 4, b = 4, l = 2, unit = "mm")
-  )
+p_emergence <- plot_stacked_percent(
+  plot_df = emergence_plot_df,
+  x_var = contrast_pretty,
+  fill_var = baseline_status,
+  y_lab = "Percentage of DETs",
+  title = "Emergence of DETs"
+) +
+  scale_fill_discrete(labels = function(x) str_wrap(x, width = 18))
 
-p_emergence
 save_panel(p_emergence, "Fig2D_DET_Emergence.png", width_mm = 52, height_mm = 65)
-
+write_csv(det_annot, file.path(results_dir, "Fig2D_DET_emergence_annotated_source_data.csv"))
 write_csv(emergence_plot_df, file.path(results_dir, "Fig2D_DET_emergence_plot_source_data.csv"))
 
-# Export category-specific DET lists.
 det_emerge_remodel <- det_annot %>%
   filter(baseline_status == "Emerged: Remodeling") %>%
-  select(transcript_symbol, gene_symbol, contrast_pretty)
-
-write_csv(det_emerge_remodel, file.path(results_dir, "DET_emerged_remodeling.csv"))
+  dplyr::select(transcript_symbol, gene_symbol, contrast_pretty)
 
 det_emerge_activation <- det_annot %>%
   filter(baseline_status == "Emerged: Activation") %>%
   dplyr::select(transcript_symbol, gene_symbol, contrast_pretty)
 
+write_csv(det_emerge_remodel, file.path(results_dir, "DET_emerged_remodeling.csv"))
 write_csv(det_emerge_activation, file.path(results_dir, "DET_emerged_activation.csv"))
 
 # ==============================================================================
 # Figure 2E: UTR/CDS remodeling among emerged-remodeling DETs
 # ==============================================================================
 
-# ---- ORF boundaries from SQANTI3 classifications ----
-class_files <- list.files(class_dir, pattern = "classification_with_transcriptID.txt$", full.names = TRUE)
-stopifnot(length(class_files) > 0)
-
-orf_sqanti <- map_dfr(class_files, ~ read_tsv(.x, show_col_types = FALSE)) %>%
-  transmute(
-    transcript_id,
-    strand,
-    CDS_genomic_start = as.numeric(CDS_genomic_start),
-    CDS_genomic_end = as.numeric(CDS_genomic_end),
-    cds_len = abs(CDS_genomic_end - CDS_genomic_start)
-  ) %>%
-  group_by(transcript_id) %>%
-  slice_max(cds_len, n = 1, with_ties = FALSE) %>%
-  ungroup() %>%
-  mutate(
-    cds_start_tmp = pmin(CDS_genomic_start, CDS_genomic_end, na.rm = TRUE),
-    cds_end_tmp = pmax(CDS_genomic_start, CDS_genomic_end, na.rm = TRUE),
-    CDS_genomic_start = if_else(is.na(CDS_genomic_start) | is.na(CDS_genomic_end), NA_real_, cds_start_tmp),
-    CDS_genomic_end = if_else(is.na(CDS_genomic_start) | is.na(CDS_genomic_end), NA_real_, cds_end_tmp)
-  ) %>%
-  select(transcript_id, CDS_genomic_start, CDS_genomic_end) %>%
-  distinct()
-
-# ---- Exon and CDS coordinates from renamed GTF files ----
-gtf_files <- list.files(gtf_dir, pattern = "\\.gtf$", full.names = TRUE)
-stopifnot(length(gtf_files) > 0)
-
-gtf_all <- map_dfr(gtf_files, function(f) {
-  import(f) %>%
-    as.data.frame() %>%
-    mutate(sample = str_remove(basename(f), "\\.gtf$"))
-})
-
-cds_from_gtf <- gtf_all %>%
-  filter(type == "CDS") %>%
-  group_by(transcript_id) %>%
-  summarise(
-    CDS_genomic_start = min(start),
-    CDS_genomic_end = max(end),
-    .groups = "drop"
-  )
-
-orf_combined <- full_join(orf_sqanti, cds_from_gtf, by = "transcript_id") %>%
-  transmute(
-    transcript_id,
-    CDS_genomic_start = coalesce(CDS_genomic_start.x, CDS_genomic_start.y),
-    CDS_genomic_end = coalesce(CDS_genomic_end.x, CDS_genomic_end.y)
-  )
-
-gtf_exons <- gtf_all %>%
-  filter(type == "exon") %>%
-  left_join(orf_combined, by = "transcript_id") %>%
-  mutate(
-    region_type = case_when(
-      is.na(CDS_genomic_start) | is.na(CDS_genomic_end) ~ "UTR",
-      strand == "+" & end < CDS_genomic_start ~ "5UTR",
-      strand == "+" & start > CDS_genomic_end ~ "3UTR",
-      strand == "+" & start >= CDS_genomic_start & end <= CDS_genomic_end ~ "CDS",
-      strand == "-" & start > CDS_genomic_end ~ "5UTR",
-      strand == "-" & end < CDS_genomic_start ~ "3UTR",
-      strand == "-" & start >= CDS_genomic_start & end <= CDS_genomic_end ~ "CDS",
-      TRUE ~ "Mixed"
-    )
-  )
-
-# ---- Per-transcript regional exon lengths ----
-# Mixed exons are not split here; they are excluded from region-specific length bins.
-# For publication, keep this explicit in the methods or split mixed exons upstream.
-tx_region_len <- gtf_exons %>%
-  mutate(exon_len = pmax(0, end - start + 1)) %>%
-  mutate(
-    region_bin = case_when(
-      region_type == "5UTR" ~ "UTR5_len",
-      region_type == "3UTR" ~ "UTR3_len",
-      region_type == "CDS" ~ "CDS_len",
-      TRUE ~ NA_character_
-    )
-  ) %>%
-  filter(!is.na(region_bin)) %>%
-  group_by(transcript_id, region_bin) %>%
-  summarise(len = sum(exon_len, na.rm = TRUE), .groups = "drop") %>%
-  pivot_wider(names_from = region_bin, values_from = len, values_fill = 0) %>%
-  mutate(
-    UTR5_len = if (!"UTR5_len" %in% names(.)) 0 else UTR5_len,
-    CDS_len = if (!"CDS_len" %in% names(.)) 0 else CDS_len,
-    UTR3_len = if (!"UTR3_len" %in% names(.)) 0 else UTR3_len
-  ) %>%
-  transmute(
-    tx_id = transcript_id,
-    UTR5_len,
-    CDS_len,
-    UTR3_len
-  )
-
-# ---- Identify dominant baseline isoform for each gene ----
-counts_for_structure <- counts_filtered %>%
-  rename(tx_id = transcript_symbol)
+counts_for_structure <- counts_filtered %>% rename(tx_id = transcript_symbol)
 
 count_long <- counts_for_structure %>%
-  select(tx_id, starts_with("C0_"), starts_with("C3_"), starts_with("C7_")) %>%
+  dplyr::select(tx_id, starts_with("C0_"), starts_with("C3_"), starts_with("C7_")) %>%
   pivot_longer(-tx_id, names_to = "sample", values_to = "count") %>%
   mutate(
     sample = standardize_sample_name(sample),
@@ -607,22 +579,7 @@ count_long <- counts_for_structure %>%
   ) %>%
   left_join(counts_for_structure %>% distinct(tx_id, gene_symbol), by = "tx_id")
 
-baseline_tbl_structure <- counts_for_structure %>%
-  mutate(
-    n_C0_ge_min = rowSums(across(all_of(C0_cols), ~ .x >= min_count), na.rm = TRUE),
-    iso_expressed_baseline = n_C0_ge_min >= min_reps
-  ) %>%
-  group_by(gene_symbol) %>%
-  mutate(gene_has_any_baseline_isoform = any(iso_expressed_baseline)) %>%
-  ungroup() %>%
-  mutate(
-    baseline_status = case_when(
-      iso_expressed_baseline ~ "Expressed at Baseline",
-      !iso_expressed_baseline & !gene_has_any_baseline_isoform ~ "Emerged: Activation",
-      !iso_expressed_baseline & gene_has_any_baseline_isoform ~ "Emerged: Remodeling",
-      TRUE ~ NA_character_
-    )
-  ) %>%
+baseline_tbl_structure <- get_baseline_status(counts_for_structure, c0_cols, min_count, min_reps) %>%
   dplyr::select(tx_id, gene_symbol, n_C0_ge_min, iso_expressed_baseline, gene_has_any_baseline_isoform, baseline_status) %>%
   distinct(tx_id, .keep_all = TRUE)
 
@@ -640,58 +597,241 @@ c0_dominant_isoform <- count_long %>%
   ungroup() %>%
   rename(ref_tx = tx_id)
 
-# ---- Compare emerged-remodeling DETs to dominant baseline isoform ----
-isoform_structure_df <- det_emerge_remodel %>%
+tx_keep <- det_emerge_remodel %>%
+  mutate(tx_id = transcript_symbol) %>%
+  pull(tx_id) %>%
+  union(c0_dominant_isoform$ref_tx) %>%
+  unique() %>%
+  na.omit()
+
+known_tx_keep <- tx_keep[!str_detect(tx_keep, "novel")]
+novel_tx_keep <- tx_keep[str_detect(tx_keep, "novel")]
+
+# ---- Known transcript structure from Ensembl reference GTF --------------------
+ref_gtf <- rtracklayer::import(ref_gtf_path) %>% as.data.frame()
+
+known_structure <- ref_gtf %>%
+  mutate(transcript_name = if_else(is.na(transcript_name), transcript_id, transcript_name)) %>%
+  filter(transcript_name %in% known_tx_keep, type %in% c("CDS", "five_prime_utr", "three_prime_utr")) %>%
+  transmute(
+    tx_id = transcript_name,
+    gene_name,
+    seqnames,
+    start,
+    end,
+    strand,
+    region_type = if_else(type == "CDS", "CDS", "UTR"),
+    source = "Ensembl_reference",
+    transcript_id
+  ) %>%
+  distinct()
+
+# ---- Novel transcript ORF boundaries from SQANTI3 classifications -------------
+class_files <- list.files(
+  class_dir,
+  pattern = "classification_with_rescue_flag_with_transcriptID.txt$",
+  full.names = TRUE
+)
+if (length(class_files) == 0) stop("No SQANTI3 classification files found in: ", class_dir)
+
+orf_sqanti <- map_dfr(class_files, ~ read_tsv(.x, show_col_types = FALSE)) %>%
+  transmute(
+    transcript_id,
+    strand,
+    coding,
+    CDS_genomic_start_raw = suppressWarnings(as.numeric(CDS_genomic_start)),
+    CDS_genomic_end_raw = suppressWarnings(as.numeric(CDS_genomic_end)),
+    cds_len = abs(CDS_genomic_end_raw - CDS_genomic_start_raw)
+  ) %>%
+  group_by(transcript_id) %>%
+  arrange(desc(replace_na(cds_len, -Inf)), .by_group = TRUE) %>%
+  slice(1) %>%
+  ungroup() %>%
+  transmute(
+    transcript_id,
+    strand,
+    coding,
+    CDS_genomic_start = CDS_genomic_start_raw,
+    CDS_genomic_end = CDS_genomic_end_raw
+  ) %>%
+  distinct()
+
+# ---- Novel transcript exon and CDS coordinates from renamed GTF files ----------
+gtf_files <- list.files(gtf_dir, pattern = "\\.gtf$", full.names = TRUE)
+if (length(gtf_files) == 0) stop("No GTF files found in: ", gtf_dir)
+
+gtf_all <- map_dfr(gtf_files, function(f) {
+  rtracklayer::import(f) %>%
+    as.data.frame() %>%
+    filter(transcript_id %in% tx_keep) %>%
+    mutate(sample = str_remove(basename(f), "\\.gtf$"))
+})
+
+cds_from_gtf <- gtf_all %>%
+  filter(type == "CDS") %>%
+  group_by(transcript_id) %>%
+  summarise(
+    CDS_genomic_start = min(start),
+    CDS_genomic_end = max(end),
+    .groups = "drop"
+  )
+
+orf_combined <- full_join(orf_sqanti, cds_from_gtf, by = "transcript_id") %>%
+  transmute(
+    transcript_id,
+    coding,
+    CDS_genomic_start = coalesce(CDS_genomic_start.x, CDS_genomic_start.y),
+    CDS_genomic_end = coalesce(CDS_genomic_end.x, CDS_genomic_end.y)
+  )
+
+gtf_exons <- gtf_all %>%
+  filter(type == "exon") %>%
+  left_join(orf_combined, by = "transcript_id")
+
+novel_selected <- gtf_exons %>%
+  filter(transcript_id %in% novel_tx_keep) %>%
+  arrange(transcript_id, start) %>%
+  distinct(
+    seqnames,
+    start,
+    end,
+    strand,
+    transcript_id,
+    gene_id,
+    coding,
+    CDS_genomic_start,
+    CDS_genomic_end,
+    .keep_all = TRUE
+  )
+
+novel_structure <- novel_selected %>%
+  rowwise() %>%
+  do(split_exon_by_orf(.)) %>%
+  ungroup() %>%
+  mutate(
+    tx_id = transcript_id,
+    coding_class = coding,
+    region_type = case_when(
+      region_type == "CDS" ~ "CDS",
+      region_type %in% c("5UTR", "3UTR", "UTR") ~ "UTR",
+      TRUE ~ NA_character_
+    ),
+    source = "SQANTI3_ORF_prediction"
+  ) %>%
+  dplyr::select(tx_id, seqnames, start, end, strand, coding_class, region_type, source) %>%
+  filter(!is.na(region_type)) %>%
+  distinct()
+
+tx_structure_all <- bind_rows(
+  known_structure %>% select(tx_id, seqnames, start, end, strand, region_type, source),
+  novel_structure %>% select(tx_id, seqnames, start, end, strand, region_type, source)
+) %>%
+  filter(!is.na(region_type)) %>%
+  distinct()
+
+isoform_structure_input <- det_emerge_remodel %>%
   mutate(tx_id = transcript_symbol) %>%
   left_join(
     baseline_tbl_structure %>% select(tx_id, gene_symbol, iso_expressed_baseline, baseline_status),
     by = c("tx_id", "gene_symbol")
   ) %>%
   left_join(c0_dominant_isoform, by = "gene_symbol") %>%
-  left_join(tx_region_len, by = "tx_id") %>%
-  rename(UTR5 = UTR5_len, CDS = CDS_len, UTR3 = UTR3_len) %>%
+  filter(!is.na(ref_tx), tx_id != ref_tx)
+
+# Compare each DET only once against the dominant baseline isoform for that gene.
+compare_df <- isoform_structure_input %>%
+  distinct(tx_id, ref_tx) %>%
+  mutate(compare = map2(tx_id, ref_tx, ~ compare_tx_to_ref(.x, .y, tx_structure_all))) %>%
+  dplyr::select(compare) %>%
+  unnest(compare)
+
+isoform_structure_gr <- isoform_structure_input %>%
+  left_join(compare_df, by = c("tx_id", "ref_tx"))
+
+# ---- Coding class annotation --------------------------------------------------
+known_coding_by_cds <- ref_gtf %>%
+  mutate(transcript_name = if_else(is.na(transcript_name), transcript_id, transcript_name)) %>%
+  filter(transcript_name %in% known_tx_keep) %>%
+  group_by(transcript_name) %>%
+  summarise(
+    has_CDS = any(type == "CDS"),
+    transcript_biotype = dplyr::first(na.omit(transcript_biotype)),
+    .groups = "drop"
+  ) %>%
+  mutate(
+    tx_id = transcript_name,
+    coding_class = if_else(has_CDS, "coding", "noncoding"),
+    coding_source = "Ensembl_CDS_presence"
+  ) %>%
+  dplyr::select(tx_id, coding_class, coding_source, transcript_biotype, has_CDS)
+
+novel_biotype <- orf_combined %>%
+  filter(transcript_id %in% novel_tx_keep) %>%
+  mutate(
+    tx_id = transcript_id,
+    has_predicted_orf = !is.na(CDS_genomic_start) & !is.na(CDS_genomic_end),
+    coding_class = if_else(coding == "coding", "coding", "noncoding"),
+    coding_source = "SQANTI3_ORF_prediction",
+    transcript_biotype = if_else(has_predicted_orf, "predicted_protein_coding", "predicted_noncoding")
+  ) %>%
+  dplyr::select(tx_id, coding_class, coding_source, transcript_biotype)
+
+tx_coding_annot <- bind_rows(known_coding_by_cds, novel_biotype) %>%
+  distinct(tx_id, .keep_all = TRUE)
+
+isoform_structure_gr <- isoform_structure_gr %>%
   left_join(
-    tx_region_len %>%
-      rename(ref_tx = tx_id, ref_UTR5 = UTR5_len, ref_CDS = CDS_len, ref_UTR3 = UTR3_len),
+    tx_coding_annot %>%
+      rename(
+        tx_coding_class = coding_class,
+        tx_coding_source = coding_source,
+        tx_biotype = transcript_biotype
+      ),
+    by = "tx_id"
+  ) %>%
+  left_join(
+    tx_coding_annot %>%
+      rename(
+        ref_tx = tx_id,
+        ref_coding_class = coding_class,
+        ref_coding_source = coding_source,
+        ref_biotype = transcript_biotype
+      ),
     by = "ref_tx"
   ) %>%
   mutate(
-    UTR5 = coalesce(UTR5, 0),
-    CDS = coalesce(CDS, 0),
-    UTR3 = coalesce(UTR3, 0),
-    ref_UTR5 = coalesce(ref_UTR5, 0),
-    ref_CDS = coalesce(ref_CDS, 0),
-    ref_UTR3 = coalesce(ref_UTR3, 0),
-    d_UTR5 = UTR5 - ref_UTR5,
-    d_CDS = CDS - ref_CDS,
-    d_UTR3 = UTR3 - ref_UTR3,
-    flag_UTR = abs(d_UTR5) >= region_length_tolerance | abs(d_UTR3) >= region_length_tolerance,
-    flag_CDS = abs(d_CDS) >= region_length_tolerance,
-    remodel_class = case_when(
-      flag_UTR & !flag_CDS ~ "UTR only",
-      !flag_UTR & flag_CDS ~ "CDS only",
-      flag_UTR & flag_CDS ~ "UTR + CDS",
-      !flag_UTR & !flag_CDS ~ "Non-coding",
-      TRUE ~ "No length change"
+    coding_transition = case_when(
+      ref_coding_class == "coding" & tx_coding_class == "coding" ~ "coding_to_coding",
+      ref_coding_class == "coding" & tx_coding_class == "noncoding" ~ "coding_to_noncoding",
+      ref_coding_class == "noncoding" & tx_coding_class == "coding" ~ "noncoding_to_coding",
+      ref_coding_class == "noncoding" & tx_coding_class == "noncoding" ~ "noncoding_to_noncoding",
+      TRUE ~ "unknown"
+    ),
+    comparison_type = case_when(
+      !str_detect(tx_id, "novel") & !str_detect(ref_tx, "novel") ~ "known_vs_known",
+      str_detect(tx_id, "novel") & !str_detect(ref_tx, "novel") ~ "novel_vs_known",
+      !str_detect(tx_id, "novel") & str_detect(ref_tx, "novel") ~ "known_vs_novel",
+      str_detect(tx_id, "novel") & str_detect(ref_tx, "novel") ~ "novel_vs_novel",
+      TRUE ~ "unknown"
+    ),
+    final_class = case_when(
+      structure_change_class == "UTR only" ~ "UTR Only",
+      str_starts(structure_change_class, "CDS") ~ "ORF Modification",
+      structure_change_class == "Coding-Noncoding Switch" & coding_transition == "noncoding_to_coding" ~ "ORF Gain",
+      structure_change_class == "Coding-Noncoding Switch" & coding_transition == "coding_to_noncoding" ~ "ORF Loss",
+      structure_change_class == "Coding-Noncoding Switch" & coding_transition == "noncoding_to_noncoding" ~ "Noncoding",
+      TRUE ~ "unknown"
     )
   )
 
-write_csv(isoform_structure_df, file.path(results_dir, "Fig2E_UTR_CDS_remodeling_annotated_source_data.csv"))
+write_csv(isoform_structure_gr, file.path(results_dir, "Fig2E_isoform_structure_comparison_source_data.csv"))
 
-structure_qc <- isoform_structure_df %>%
-  summarise(
-    n = n(),
-    n_missing_ref = sum(is.na(ref_tx)),
-    frac_missing_ref = n_missing_ref / n
-  )
-
-write_csv(structure_qc, file.path(results_dir, "Fig2E_UTR_CDS_remodeling_QC.csv"))
-
-remodel_plot_df <- isoform_structure_df %>%
-  dplyr::count(contrast_pretty, remodel_class, name = "n_isoforms") %>%
+remodel_plot_df <- isoform_structure_gr %>%
+  filter(final_class %in% remodel_class_levels) %>%
+  dplyr::count(contrast_pretty, final_class, name = "n_isoforms") %>%
   complete(
     contrast_pretty = comparison_levels,
-    remodel_class = c("Non-coding", "UTR only", "CDS only", "UTR + CDS"),
+    final_class = remodel_class_levels,
     fill = list(n_isoforms = 0)
   ) %>%
   group_by(contrast_pretty) %>%
@@ -699,39 +839,29 @@ remodel_plot_df <- isoform_structure_df %>%
   ungroup() %>%
   mutate(
     contrast_pretty = factor(contrast_pretty, levels = comparison_levels),
-    remodel_class = factor(remodel_class, levels = c("Non-coding", "UTR only", "CDS only", "UTR + CDS"))
+    final_class = factor(final_class, levels = remodel_class_levels)
   )
 
-p_remodeling <- ggplot(remodel_plot_df, aes(x = contrast_pretty, y = value, fill = remodel_class)) +
+p_remodeling <- ggplot(remodel_plot_df, aes(x = contrast_pretty, y = value, fill = final_class)) +
   geom_col(width = 0.9, color = "black", linewidth = 0.25) +
-  geom_text(aes(label = pct_lab_value(value)), position = position_stack(vjust = 0.5), size = 1.8) +
+  geom_text(aes(label = pct_lab_value(value)), position = position_stack(vjust = 0.5), size = 1.6) +
   scale_y_continuous(expand = c(0, 0), labels = function(x) paste0(x, "%"), position = "right") +
   coord_cartesian(ylim = c(0, 100)) +
   scale_fill_discrete(palette = "Set2", labels = function(x) str_wrap(x, width = 18)) +
   labs(x = NULL, y = NULL, title = "Remodeling of DETs", fill = NULL) +
-  theme_classic(base_size = 7) +
+  theme_pub() +
   theme(
     legend.position = "bottom",
     legend.box = "horizontal",
-    axis.line = element_line(color = "black", linewidth = 0.3),
-    axis.ticks = element_line(color = "black", linewidth = 0.3),
-    axis.ticks.length = unit(0.15, "cm"),
-    panel.grid = element_blank(),
-    axis.text.x = element_text(size = 5, hjust = 0.5, vjust = 0.5),
-    axis.text.y = element_text(size = 5),
-    axis.title.y = element_text(size = 6, margin = margin(r = 3)),
-    plot.title = element_text(size = 7, face = "bold", hjust = 0.5, margin = margin(b = 4)),
-    legend.key.size = unit(3, "mm"),
-    legend.text = element_text(size = 6),
+    legend.key.size = unit(2, "mm"),
+    legend.text = element_text(size = 5),
     legend.spacing.y = unit(1, "mm"),
     legend.spacing.x = unit(1, "mm"),
-    legend.box.margin = margin(t = -2, r = 0, b = 0, l = 0, unit = "mm"),
-    plot.margin = margin(t = 8, r = 4, b = 4, l = 4, unit = "mm")
+    legend.box.margin = margin(t = -2, r = -4, b = 0, l = 0, unit = "mm")
   ) +
-  guides(fill = guide_legend(nrow = 2, byrow = TRUE))
+  guides(fill = guide_legend(nrow = 2, byrow = FALSE))
 
-p_remodeling
-save_panel(p_remodeling, "Fig2E_UTR_CDS_Remodeling.png", width_mm = 50, height_mm = 68)
+save_panel(p_remodeling, "Fig2E_UTR_CDS_ORF_Remodeling.png", width_mm = 50, height_mm = 68)
+write_csv(remodel_plot_df, file.path(results_dir, "Fig2E_UTR_CDS_ORF_remodeling_plot_source_data.csv"))
 
-write_csv(remodel_plot_df, file.path(results_dir, "Fig2E_UTR_CDS_remodeling_plot_source_data.csv"))
 
