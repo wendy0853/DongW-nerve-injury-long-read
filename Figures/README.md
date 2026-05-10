@@ -20,7 +20,7 @@ Most figure panels were generated using outputs from:
 | Figure_4.R | Heterogeneous isoform regulation across nerve-resident cell types. |
 | Figure_5.R | Characterization of novel isoforms and validation of Lama4-novel-6 after peripheral nerve injury. |
 | Figure_6.R | Differential transcript usage (DTU) analysis identifies Postn isoform switching, exemplifying dynamic extracellular matrix remodeling during nerve repair. |
-| Supplementary_Figure.R | Supplementary figure generation scripts |
+| Supplementary_Figure_*.R | Supplementary figure generation scripts |
 
 ---
 
