@@ -42,8 +42,7 @@ These scripts generate a modified Cell Ranger reference genome containing separa
 Reference generation was performed using:
 
 - Cell Ranger v9.0.1
-- GRCm39 genome
-- Modified GTF annotation
+- 10x Reference file: refdata-gex-GRCm39-2024-A
 
 ---
 
