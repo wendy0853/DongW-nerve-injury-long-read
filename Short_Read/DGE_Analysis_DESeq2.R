@@ -13,11 +13,24 @@
 #   - normalized counts
 #   - PCA, MA, and volcano plots
 #
+# Dataset design:
+#   This script expects 15 samples across five groups:
+#     - C0_Baseline
+#     - C3_Control
+#     - C3_Injured
+#     - C7_Control
+#     - C7_Injured
+#
+# Sample names should contain the time point and condition, for example:
+#     C0_Control_1
+#     C3_Control_1
+#     C3_Injured_1
+#     C7_Control_1
+#     C7_Injured_1
 #
 # ============================================================
 
 suppressPackageStartupMessages({
-  library(optparse)
   library(readxl)
   library(DESeq2)
   library(tidyverse)
@@ -27,45 +40,37 @@ suppressPackageStartupMessages({
 })
 
 # -----------------------------
-# Command-line arguments
+# User-defined files/directories
 # -----------------------------
 
-option_list <- list(
-  make_option(c("--counts"), type = "character", help = "Path to gene count matrix (.xlsx or .csv)"),
-  make_option(c("--outdir"), type = "character", default = "results", help = "Output directory [default: results]")
-)
+count_matrix_file <- "/path/to/all.gene_counts.xlsx"    # <-- MODIFY HERE
+outdir <- "/path/to/output_directory"                   # <-- MODIFY HERE
 
-opt <- parse_args(OptionParser(option_list = option_list))
-
-if (is.null(opt$counts)) {
-  stop("Please provide a count matrix using --counts")
-}
-
-dir.create(opt$outdir, showWarnings = FALSE, recursive = TRUE)
+dir.create(outdir, showWarnings = FALSE, recursive = TRUE)
 
 # -----------------------------
 # User-adjustable settings
 # -----------------------------
 
-padj_cutoff <- 0.05
-lfc_cutoff <- 1
-min_count <- 10
-min_replicates <- 2
+padj_cutoff <- 0.05                                     # <-- MODIFY HERE IF NEEDED
+lfc_cutoff <- 1                                         # <-- MODIFY HERE IF NEEDED
+min_count <- 10                                         # <-- MODIFY HERE IF NEEDED
+min_replicates <- 2                                     # <-- MODIFY HERE IF NEEDED
 
 # If your count matrix has annotation columns before sample columns,
-# update this number if needed.
-first_sample_column <- 9
+# update this number. In this study, sample columns started at column 9.
+first_sample_column <- 9                                # <-- MODIFY HERE IF NEEDED
 
 # -----------------------------
 # Load count matrix
 # -----------------------------
 
-message("Reading count matrix: ", opt$counts)
+message("Reading count matrix: ", count_matrix_file)
 
-if (grepl("\\.xlsx$", opt$counts, ignore.case = TRUE)) {
-  expression_matrix_raw <- readxl::read_excel(opt$counts)
-} else if (grepl("\\.csv$", opt$counts, ignore.case = TRUE)) {
-  expression_matrix_raw <- read.csv(opt$counts, check.names = FALSE)
+if (grepl("\\.xlsx$", count_matrix_file, ignore.case = TRUE)) {
+  expression_matrix_raw <- readxl::read_excel(count_matrix_file)
+} else if (grepl("\\.csv$", count_matrix_file, ignore.case = TRUE)) {
+  expression_matrix_raw <- read.csv(count_matrix_file, check.names = FALSE)
 } else {
   stop("Input count matrix must be .xlsx or .csv")
 }
@@ -85,6 +90,7 @@ required_annotation_cols <- c(
 )
 
 missing_cols <- setdiff(required_annotation_cols, colnames(expression_matrix_raw))
+
 if (length(missing_cols) > 0) {
   stop("Missing required annotation columns: ", paste(missing_cols, collapse = ", "))
 }
@@ -150,7 +156,7 @@ sample_info$group <- factor(
 
 rownames(sample_info) <- sample_info$sample
 
-if (any(is.na(sample_info$group))) {
+if (any(is.na(sample_info$group)) || any(sample_info$treatment == "Unknown")) {
   stop("Some samples could not be assigned to expected groups. Check sample names.")
 }
 
@@ -171,7 +177,10 @@ mcols(dds)$gene_biotype <- gene_annotation$gene_biotype
 
 dds <- DESeq(dds)
 
+# -----------------------------
 # Save normalized counts
+# -----------------------------
+
 normalized_counts <- counts(dds, normalized = TRUE) %>%
   as.data.frame() %>%
   rownames_to_column("ensembl_id") %>%
@@ -184,7 +193,7 @@ normalized_counts <- counts(dds, normalized = TRUE) %>%
 
 write.csv(
   normalized_counts,
-  file.path(opt$outdir, "normalized_counts.csv"),
+  file.path(outdir, "normalized_counts.csv"),
   row.names = FALSE
 )
 
@@ -194,6 +203,7 @@ write.csv(
 
 extract_results <- function(dds, numerator, denominator, gene_annotation) {
   res <- results(dds, contrast = c("group", numerator, denominator))
+
   res_df <- as.data.frame(res) %>%
     rownames_to_column("ensembl_id") %>%
     left_join(
@@ -207,8 +217,13 @@ extract_results <- function(dds, numerator, denominator, gene_annotation) {
   numerator_samples <- rownames(colData(dds))[colData(dds)$group == numerator]
   denominator_samples <- rownames(colData(dds))[colData(dds)$group == denominator]
 
-  res_df$mean_counts_numerator <- rowMeans(norm_counts[res_df$ensembl_id, numerator_samples, drop = FALSE])
-  res_df$mean_counts_denominator <- rowMeans(norm_counts[res_df$ensembl_id, denominator_samples, drop = FALSE])
+  res_df$mean_counts_numerator <- rowMeans(
+    norm_counts[res_df$ensembl_id, numerator_samples, drop = FALSE]
+  )
+
+  res_df$mean_counts_denominator <- rowMeans(
+    norm_counts[res_df$ensembl_id, denominator_samples, drop = FALSE]
+  )
 
   res_df %>%
     select(
@@ -237,7 +252,7 @@ filter_sig_degs <- function(res_df, padj_cutoff = 0.05, lfc_cutoff = 1) {
 save_result_pair <- function(res_df, comparison_name) {
   write.csv(
     res_df,
-    file.path(opt$outdir, paste0(comparison_name, "_results.csv")),
+    file.path(outdir, paste0(comparison_name, "_results.csv")),
     row.names = FALSE
   )
 
@@ -245,7 +260,7 @@ save_result_pair <- function(res_df, comparison_name) {
 
   write.csv(
     sig_df,
-    file.path(opt$outdir, paste0(comparison_name, "_significant_DEGs.csv")),
+    file.path(outdir, paste0(comparison_name, "_significant_DEGs.csv")),
     row.names = FALSE
   )
 
@@ -254,8 +269,11 @@ save_result_pair <- function(res_df, comparison_name) {
 
 create_ma_plot <- function(res_df, title) {
   ggplot(res_df, aes(x = log10(baseMean + 1), y = log2FoldChange)) +
-    geom_point(aes(color = !is.na(padj) & padj <= padj_cutoff & abs(log2FoldChange) >= lfc_cutoff),
-               alpha = 0.6, size = 1) +
+    geom_point(
+      aes(color = !is.na(padj) & padj <= padj_cutoff & abs(log2FoldChange) >= lfc_cutoff),
+      alpha = 0.6,
+      size = 1
+    ) +
     labs(
       title = title,
       x = "log10(baseMean + 1)",
@@ -307,8 +325,9 @@ for (comparison_name in names(comparisons)) {
   all_sig_results[[comparison_name]] <- sig_df
 
   ma_plot <- create_ma_plot(res_df, paste("MA Plot -", comparison_name))
+
   ggsave(
-    file.path(opt$outdir, paste0("MA_plot_", comparison_name, ".png")),
+    file.path(outdir, paste0("MA_plot_", comparison_name, ".png")),
     ma_plot,
     width = 8,
     height = 6,
@@ -316,8 +335,9 @@ for (comparison_name in names(comparisons)) {
   )
 
   volcano_plot <- create_volcano_plot(res_df, paste("Volcano Plot -", comparison_name))
+
   ggsave(
-    file.path(opt$outdir, paste0("Volcano_plot_", comparison_name, ".png")),
+    file.path(outdir, paste0("Volcano_plot_", comparison_name, ".png")),
     volcano_plot,
     width = 8,
     height = 6,
@@ -325,17 +345,24 @@ for (comparison_name in names(comparisons)) {
   )
 }
 
-
 # -----------------------------
 # PCA plot
 # -----------------------------
 
 vsd <- varianceStabilizingTransformation(dds, blind = FALSE)
 
-pca_data <- plotPCA(vsd, intgroup = c("time_point", "treatment"), returnData = TRUE)
+pca_data <- plotPCA(
+  vsd,
+  intgroup = c("time_point", "treatment"),
+  returnData = TRUE
+)
+
 percent_var <- round(100 * attr(pca_data, "percentVar"))
 
-pca_plot <- ggplot(pca_data, aes(x = PC1, y = PC2, color = time_point, shape = treatment)) +
+pca_plot <- ggplot(
+  pca_data,
+  aes(x = PC1, y = PC2, color = time_point, shape = treatment)
+) +
   geom_point(size = 3) +
   xlab(paste0("PC1: ", percent_var[1], "% variance")) +
   ylab(paste0("PC2: ", percent_var[2], "% variance")) +
@@ -343,7 +370,7 @@ pca_plot <- ggplot(pca_data, aes(x = PC1, y = PC2, color = time_point, shape = t
   theme_minimal()
 
 ggsave(
-  file.path(opt$outdir, "PCA_plot_short_read_RNAseq.png"),
+  file.path(outdir, "PCA_plot_short_read_RNAseq.png"),
   pca_plot,
   width = 8,
   height = 6,
@@ -381,7 +408,7 @@ annotation_col <- data.frame(
 )
 
 png(
-  file.path(opt$outdir, "Heatmap_top_DEGs_short_read_RNAseq.png"),
+  file.path(outdir, "Heatmap_top_DEGs_short_read_RNAseq.png"),
   width = 10,
   height = 8,
   units = "in",
@@ -401,4 +428,4 @@ pheatmap(
 
 dev.off()
 
-message("DESeq2 analysis complete. Results saved to: ", opt$outdir)
+message("DESeq2 analysis complete. Results saved to: ", outdir)
