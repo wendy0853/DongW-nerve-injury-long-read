@@ -17,8 +17,6 @@
 #   - SQANTI3 classification files
 #   - SQANTI3 structural category summary table
 #
-# Outputs:
-#   - Publication-ready Figure 1 panels
 #
 ################################################################################
 
