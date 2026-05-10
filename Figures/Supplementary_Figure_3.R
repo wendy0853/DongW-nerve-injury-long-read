@@ -3,7 +3,6 @@
 ################################################################################
 # Supplementary Figure 3
 #
-#
 # Panels:
 #   S3a: Trem2 isoform expression
 #   S3b: Trem2 isoform track plot
@@ -45,3 +44,4 @@ panel_sources <- tibble::tribble(
   "S3E", "Isoform expression of injury-associated genes", "Plotting_isoform_expression.R", "Pmp22, Spp1, Atf3, Lgals3"
 )
 
+print(panel_sources)
