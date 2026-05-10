@@ -96,18 +96,6 @@ The script assumes the count matrix contains gene annotation columns followed by
 
 ---
 
-## Running the Analysis
-
-Example:
-
-```bash
-Rscript run_deseq2_short_read.R \
-  --counts all.gene_counts.xlsx \
-  --outdir results
-```
-
----
-
 ## Outputs
 
 The script generates:
