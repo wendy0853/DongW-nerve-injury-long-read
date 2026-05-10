@@ -149,5 +149,9 @@ Primary software used in this study includes:
 
 **Wendy Dong**  
 MD-PhD Candidate  
-Washington University School of Medicine
+Washington University School of Medicine in St. Louis
 wendy.dong@wustl.edu
+
+## License
+
+This repository is distributed under the MIT License. See `LICENSE` for details.
