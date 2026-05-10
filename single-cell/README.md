@@ -93,8 +93,6 @@ This workflow performs:
 - Propeller cell proportion analysis
 - Fisher’s exact enrichment testing
 
----
-
 ## Quality Control
 
 Cells/nuclei were filtered using the following thresholds:
@@ -109,8 +107,6 @@ Doublets were identified using:
 
 - Scrublet v0.2.3
 
----
-
 ## Integration
 
 Datasets were normalized and integrated using:
@@ -123,8 +119,6 @@ Integration was performed across:
 - biological replicates
 - experimental conditions
 - nerve types
-
----
 
 ## Pseudobulk Differential Expression
 
