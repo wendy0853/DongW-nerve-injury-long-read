@@ -1,7 +1,7 @@
 #!/usr/bin/env Rscript
 
 # =============================================================================
-# Figure 4 and supplementary single-cell plotting
+# Figure 4 and Supplementary Figure S5 single-cell plotting
 # =============================================================================
 
 suppressPackageStartupMessages({
@@ -343,3 +343,70 @@ if ("Mbp-Golli" %in% rownames(obj)) {
 }
 
 message("Figure plotting complete. Figures saved to: ", figure_dir)
+
+# =============================================================================
+# Multi-DET cell-type enrichment dot plot
+# =============================================================================
+
+enrichment_path <- file.path(
+  results_dir,
+  "multi_DET_cell_type_enrichment_results.csv"
+)                                                                 # <-- MODIFY HERE IF NEEDED
+
+if (file.exists(enrichment_path)) {
+  enrichment_df <- readr::read_csv(enrichment_path, show_col_types = FALSE) %>%
+    mutate(
+      contrast = factor(
+        contrast,
+        levels = c("C3_vs_C0", "C7_vs_C0"),
+        labels = c("C3 vs C0", "C7 vs C0")
+      ),
+      cell_type = factor(
+        cell_type,
+        levels = c(
+          "Schwann Cells",
+          "Perineurial",
+          "Epineurial",
+          "Endoneurial",
+          "Immune",
+          "Pericytes VSMCs",
+          "Endothelial"
+        )
+      )
+    )
+
+  p_enrichment <- ggplot(
+    enrichment_df,
+    aes(
+      x = contrast,
+      y = cell_type,
+      size = odds_ratio,
+      color = neg_log10_FDR
+    )
+  ) +
+    geom_point(alpha = 0.9) +
+    scale_size_continuous(name = "Odds ratio", range = c(1.5, 7)) +
+    scale_color_gradient(name = "-log10(FDR)") +
+    xlab(NULL) +
+    ylab(NULL) +
+    theme_minimal(base_size = 8) +
+    theme(
+      axis.text.x = element_text(size = 8, face = "bold"),
+      axis.text.y = element_text(size = 8),
+      panel.grid.major = element_line(linewidth = 0.2),
+      panel.grid.minor = element_blank(),
+      legend.title = element_text(size = 7),
+      legend.text = element_text(size = 6)
+    )
+
+  ggsave(
+    file.path(figure_dir, "DotPlot_multi_DET_cell_type_enrichment.png"),
+    p_enrichment,
+    width = 85,
+    height = 65,
+    units = "mm",
+    dpi = 600
+  )
+} else {
+  warning("Enrichment file not found: ", enrichment_path)
+}
