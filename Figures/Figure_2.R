@@ -1,10 +1,8 @@
 #!/usr/bin/env Rscript
 
 ################################################################################
-# Figure 2 plotting
-#
-# Purpose:
-#   Generate Figure 2 panels from completed DTE and DET remodeling analyses.
+# Figure 2: Peripheral nerve injury induces widespread isoform remodeling with 
+#  distinct modes of transcript emergence and functional consequences.
 #
 # Panels:
 #   A: DET distribution by direction
