@@ -143,7 +143,7 @@ Genes were considered significantly differentially expressed using:
 ### 5. Cell-Type Enrichment Analysis
 
 ```text
-CellType_Enrichment_Analysis.R
+Multi_DET_Celltype_Enrichment_Analysis.R
 ```
 
 This script tests whether genes with multiple differentially expressed transcripts are enriched among cell-type-specific pseudobulk DEGs.
