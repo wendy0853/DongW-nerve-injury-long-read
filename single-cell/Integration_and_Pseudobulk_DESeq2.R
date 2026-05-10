@@ -170,6 +170,8 @@ obj <- RunUMAP(
 # =============================================================================
 
 noise_clusters <- c("17")                                      # <-- MODIFY HERE IF NEEDED
+# Noise cluster confirmed based on high doblet score, ambient RNA as top differentially
+# expressed genes, and disperse clustering
 
 if (any(obj$seurat_clusters %in% noise_clusters)) {
   obj <- subset(obj, seurat_clusters %in% setdiff(unique(obj$seurat_clusters), noise_clusters))
