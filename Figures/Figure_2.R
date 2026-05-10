@@ -11,16 +11,16 @@
 #   D: Emergence categories of DETs
 #   E: Structural remodeling categories among emerged-remodeling DETs
 #
+# Panels F - H are generated using:
+#     Plotting_isoform_expression.R
+#     Plotting_isoform_proportion.R
+#     Plotting_isoform_trackplot.R
+#
 # Notes:
 #   DESeq2 for DTE analysis are performed in:
 #      Isoform_Analysis/DTE_Analysis_DESeq2.R
 #   DET emergence and structural remodeling classification are performed in:
 #     Isoform_Analysis/DET_Remodeling_Classification.R
-#
-# Panels F - H are generated using:
-#     Plotting_isoform_expression.R
-#     Plotting_isoform_proportion.R
-#     Plotting_isoform_trackplot.R
 #
 ################################################################################
 
