@@ -26,13 +26,30 @@ IsoQuant outputs were used for:
 
 ---
 
+# Computational Environment
+
+IsoQuant was executed within a Docker container environment to ensure reproducibility.
+
+Docker image used:
+
+```bash
+etycksen/isoquant:latest
+```
+
+Containerized execution included:
+- IsoQuant v3.6.0
+- minimap2 v2.28-r1209
+- required Python dependencies
+
+---
+
 # Requirements
 
 ## Software
 
+- [Docker](https://www.docker.com/)
 - [IsoQuant](https://github.com/ablab/IsoQuant)
-- minimap2
-- gzip
+
 
 ---
 
@@ -47,9 +64,15 @@ Required inputs:
 
 # Running IsoQuant
 
-Example command:
+The workflow was executed inside the IsoQuant Docker container.
+
+Example Docker execution:
 
 ```bash
+docker run \
+-v /path/to/project:/workspace \
+-w /workspace \
+etycksen/isoquant:latest \
 bash run_isoquant.sh
 ```
 
