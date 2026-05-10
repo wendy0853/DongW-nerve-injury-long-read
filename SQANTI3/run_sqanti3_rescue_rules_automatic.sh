@@ -1,25 +1,42 @@
-##!/bin/bash
-#C7_Injured_Sciatic_1
+#!/bin/bash
+
+# =========================
+# SQANTI3 Automatic Rescue
+# Executed inside Docker container:
+# jinlab/sqanti3:vs1
+# =========================
+
+set -euo pipefail
+
+# Usage:
+# bash run_sqanti3_rescue_rules_automatic.sh SAMPLE_NAME
+
 SAMPLE_NAME=$1
-#C7_Injury
-DIR=$2
 
-CLASS_TXT="$(echo /storage1/fs1/jin810/Active/Projects/RNAseq/Long_read_RNAseq_Crush_Injury/Long_read/${DIR}/SQANTI3_Output_updated/${SAMPLE_NAME}/${SAMPLE_NAME}_classification.txt)"
-CORRECTED_FASTA="$(echo /storage1/fs1/jin810/Active/Projects/RNAseq/Long_read_RNAseq_Crush_Injury/Long_read/${DIR}/SQANTI3_Output_updated/${SAMPLE_NAME}/${SAMPLE_NAME}_corrected.fasta)"
-CORRECTED_GTF="$(echo /storage1/fs1/jin810/Active/Projects/RNAseq/Long_read_RNAseq_Crush_Injury/Long_read/${DIR}/SQANTI3_Output_updated/${SAMPLE_NAME}/${SAMPLE_NAME}_corrected.gtf)"
-OUTPUT_DIR="$(echo /storage1/fs1/jin810/Active/Projects/RNAseq/Long_read_RNAseq_Crush_Injury/Long_read/${DIR}/SQANTI3_Output_updated/${SAMPLE_NAME}/filtered_rules)"
-REFERENCE_GTF="/storage1/fs1/jin810/Active/References/GRCm39/gencode.vM38.chr_patch_hapl_scaff.annotation.gtf"
-REFERENCE_FASTA="/storage1/fs1/jin810/Active/References/GRCm39/GRCm39.genome.fa"
-POLYA_MOTIF_LIST="/opt2/sqanti3/5.3.6/SQANTI3-5.3.6/data/polyA_motifs/mouse_and_human.polyA_motif.txt"
-CAGE_PEAK_FILE="/opt2/sqanti3/5.3.6/SQANTI3-5.3.6/data/ref_TSS_annotation/mouse.refTSS_v3.1.GRCm39.bed"
+# =========================
+# User-defined paths
+# =========================
 
-# Create output directory
-mkdir -p ${OUTPUT_DIR}
-# Run SQANTI3 Filter
-echo ${SAMPLE_NAME} ${CLASS_TXT} ${OUTPUT_DIR}
+SQANTI3_DIR="/path/to/SQANTI3/output/${SAMPLE_NAME}"
+FILTER_DIR="${SQANTI3_DIR}/filtered_rules"
+OUTPUT_DIR="${FILTER_DIR}/rescue_automatic"
 
-sqanti3_rescue.py rules --filter_class  ${OUTPUT_DIR}/${SAMPLE_NAME}_filtered_RulesFilter_result_classification.txt\
-                        --refGTF ${REFERENCE_GTF} \
-                        --refFasta ${REFERENCE_FASTA} \
-                        --mode automatic \
-                        --dir ${OUTPUT_DIR}/rescue_automatic --output ${SAMPLE_NAME}_rescue
+REFERENCE_GTF="/path/to/reference/gencode.vM38.annotation.gtf"
+REFERENCE_FASTA="/path/to/reference/GRCm39.genome.fa"
+
+FILTERED_CLASS="${FILTER_DIR}/${SAMPLE_NAME}_filtered_RulesFilter_result_classification.txt"
+
+# =========================
+# Run SQANTI3 automatic rescue
+# =========================
+
+mkdir -p "${OUTPUT_DIR}"
+
+sqanti3_rescue.py \
+rules \
+--filter_class "${FILTERED_CLASS}" \
+--refGTF "${REFERENCE_GTF}" \
+--refFasta "${REFERENCE_FASTA}" \
+--mode automatic \
+--dir "${OUTPUT_DIR}" \
+--output "${SAMPLE_NAME}_rescue"
