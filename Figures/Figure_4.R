@@ -1,7 +1,7 @@
 #!/usr/bin/env Rscript
 
 # =============================================================================
-# Figure 4 and Supplementary Figure S5 single-cell plotting
+# Figure 4 
 # =============================================================================
 
 suppressPackageStartupMessages({
@@ -65,99 +65,6 @@ ggsave(
   dpi = 600
 )
 
-# -----------------------------
-# UMAP detailed cell types
-# -----------------------------
-
-p_umap_detailed <- DimPlot(
-  obj,
-  reduction = "umap.harmony",
-  group.by = "detailed_annotations",
-  label = TRUE,
-  label.size = 2,
-  pt.size = 1e-10,
-  raster = FALSE
-) +
-  ggtitle("UMAP of Injured Sciatic Nerves") +
-  theme_void() +
-  theme(
-    plot.title = element_text(size = 8, face = "bold", hjust = 0.5),
-    legend.position = "none"
-  )
-
-ggsave(
-  file.path(figure_dir, "UMAP_detailed_annotations.png"),
-  p_umap_detailed,
-  width = 90,
-  height = 90,
-  units = "mm",
-  dpi = 600
-)
-
-# -----------------------------
-# UMAP by timepoint
-# -----------------------------
-
-p_umap_timepoint <- DimPlot(
-  obj,
-  reduction = "umap.harmony",
-  split.by = "timepoint",
-  pt.size = 1e-10,
-  raster = FALSE
-) +
-  ggtitle(NULL) +
-  theme_void()
-
-ggsave(
-  file.path(figure_dir, "UMAP_split_by_timepoint.png"),
-  p_umap_timepoint,
-  width = 180,
-  height = 60,
-  units = "mm",
-  dpi = 600
-)
-
-# -----------------------------
-# Highlight each timepoint
-# -----------------------------
-
-tp_cols <- c(
-  C0 = "#0072B2",
-  C3 = "#E69F00",
-  C7 = "#66BD63"
-)
-
-for (tp in names(tp_cols)) {
-  obj$highlight <- factor(
-    obj$timepoint == tp,
-    levels = c(FALSE, TRUE)
-  )
-
-  p <- DimPlot(
-    obj,
-    reduction = "umap.harmony",
-    group.by = "highlight",
-    cols = c("FALSE" = "grey85", "TRUE" = tp_cols[[tp]]),
-    pt.size = 1e-10,
-    order = TRUE,
-    raster = FALSE
-  ) +
-    ggtitle(tp) +
-    theme_void() +
-    theme(
-      plot.title = element_text(size = 20, face = "bold", hjust = 0.5),
-      legend.position = "none"
-    )
-
-  ggsave(
-    file.path(figure_dir, paste0("UMAP_highlight_", tp, ".png")),
-    p,
-    width = 90,
-    height = 90,
-    units = "mm",
-    dpi = 600
-  )
-}
 
 # -----------------------------
 # Cell composition bar plot
@@ -210,73 +117,7 @@ ggsave(
   dpi = 600
 )
 
-# -----------------------------
-# Canonical marker dot plot
-# -----------------------------
 
-canonical_markers <- c(
-  "Pcolce2", "Cdkn2a", "Cldn1", "Pecam1", "Notch3",
-  "Sox10", "Ccl8", "Cx3cr1", "Napsa"
-)
-
-p_dot <- DotPlot(
-  obj,
-  features = canonical_markers,
-  group.by = "annotations"
-) +
-  xlab(NULL) +
-  ylab(NULL) +
-  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
-  scale_color_gradientn(colors = rev(RColorBrewer::brewer.pal(11, "Spectral")))
-
-ggsave(
-  file.path(figure_dir, "DotPlot_canonical_markers.png"),
-  p_dot,
-  width = 150,
-  height = 100,
-  units = "mm",
-  dpi = 600
-)
-
-# -----------------------------
-# Detailed marker dot plot
-# -----------------------------
-
-detailed_markers <- c(
-  "Ms4a2", "Cpa3",
-  "Cxcr2", "S100a9", "Lcn2",
-  "Ly6c2", "Siglech",
-  "Mki67", "Top2a",
-  "Ncr1", "Klra7",
-  "Cldn1", "Cxadr", "Mpzl2",
-  "Cd3g", "Lat",
-  "Pecam1", "Vwf", "Eng",
-  "Gas1", "Angptl1", "Cilp", "Pi16", "Dpt", "Pcolce2",
-  "Acta2", "Des", "Notch3",
-  "Cd209a", "Napsa",
-  "Chil3", "Klra2", "Trem2", "Fcgr1", "C1qa",
-  "Sox10", "Mpz", "Prx", "Slc35f1", "Scn7a",
-  "Sox9", "Bmp7", "Abca6"
-)
-
-p_dot_detailed <- DotPlot(
-  obj,
-  features = detailed_markers,
-  group.by = "detailed_annotations"
-) +
-  xlab(NULL) +
-  ylab(NULL) +
-  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
-  scale_color_gradientn(colors = rev(RColorBrewer::brewer.pal(11, "Spectral")))
-
-ggsave(
-  file.path(figure_dir, "DotPlot_detailed_markers.png"),
-  p_dot_detailed,
-  width = 350,
-  height = 170,
-  units = "mm",
-  dpi = 600
-)
 
 # -----------------------------
 # Mbp-Golli / Mbp-Classic dot plot
@@ -318,31 +159,6 @@ if (length(available_mbp) > 0) {
   )
 }
 
-# -----------------------------
-# Mbp-Golli violin plot
-# -----------------------------
-
-if ("Mbp-Golli" %in% rownames(obj)) {
-  p_vln <- VlnPlot(
-    obj,
-    features = "Mbp-Golli",
-    group.by = "annotations",
-    raster = FALSE
-  ) +
-    xlab(NULL) +
-    theme(legend.position = "none")
-
-  ggsave(
-    file.path(figure_dir, "VlnPlot_Mbp_Golli.png"),
-    p_vln,
-    width = 200,
-    height = 90,
-    units = "mm",
-    dpi = 600
-  )
-}
-
-message("Figure plotting complete. Figures saved to: ", figure_dir)
 
 # =============================================================================
 # Multi-DET cell-type enrichment dot plot
