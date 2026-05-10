@@ -14,28 +14,13 @@
 # Output:
 #   novel_isoform_translation.csv
 #
-# Output columns:
-#   - unified_id: stable novel isoform ID
-#   - transcript_id: original SQANTI3 transcript ID with sample suffix
-#
 # IMPORTANT:
-#   The GTF files supplied to --gtf_list should be the
-#   SQANTI3-generated *_corrected.gtf files produced by:
-#
-#       sqanti3_qc.py
-#
-#   Example:
-#       C0_Sciatic_1_corrected.gtf
-#
-#   These corrected transcript models contain SQANTI3-refined transcript
-#   structures and are used throughout downstream isoform analyses.
-#
-# gtf_list should contain one *_corrected.gtf file path per line.
+#   The input GTFs should be the SQANTI3-generated *_corrected.gtf files
+#   produced by sqanti3_qc.py, NOT the original IsoQuant GTFs.
 #
 # =============================================================================
 
 suppressPackageStartupMessages({
-  library(optparse)
   library(rtracklayer)
   library(GenomicRanges)
   library(dplyr)
@@ -48,49 +33,34 @@ suppressPackageStartupMessages({
 })
 
 # -----------------------------
-# Command-line arguments
+# User-defined files/directories
 # -----------------------------
 
-option_list <- list(
-  make_option(
-    c("--gtf_list"),
-    type = "character",
-    help = "Text file containing one SQANTI3 corrected/filtered GTF path per line"
-  ),
-  make_option(
-    c("--outdir"),
-    type = "character",
-    default = "results",
-    help = "Output directory [default: results]"
-  ),
-  make_option(
-    c("--output"),
-    type = "character",
-    default = "novel_isoform_translation.csv",
-    help = "Output CSV file name [default: novel_isoform_translation.csv]"
-  )
-)
+gtf_list_file <- "/path/to/sqanti3_corrected_gtf_list.txt"   # <-- MODIFY HERE
+outdir <- "/path/to/output_directory"                        # <-- MODIFY HERE
+output_file <- "novel_isoform_translation.csv"               # <-- MODIFY HERE IF NEEDED
 
-opt <- parse_args(OptionParser(option_list = option_list))
-
-if (is.null(opt$gtf_list)) {
-  stop("Please provide --gtf_list")
-}
-
-dir.create(opt$outdir, showWarnings = FALSE, recursive = TRUE)
+dir.create(outdir, showWarnings = FALSE, recursive = TRUE)
 
 # -----------------------------
 # Read input GTF list
 # -----------------------------
+# gtf_list_file should contain one SQANTI3 *_corrected.gtf file per line.
+#
+# Example:
+# /path/to/C0_Sciatic_1_corrected.gtf
+# /path/to/C0_Sciatic_2_corrected.gtf
+# /path/to/C0_Sciatic_3_corrected.gtf
 
-gtf_paths <- read_lines(opt$gtf_list)
+gtf_paths <- readr::read_lines(gtf_list_file)
 gtf_paths <- gtf_paths[gtf_paths != ""]
 
 if (length(gtf_paths) == 0) {
-  stop("No GTF paths found in --gtf_list")
+  stop("No GTF paths found in gtf_list_file")
 }
 
 missing_files <- gtf_paths[!file.exists(gtf_paths)]
+
 if (length(missing_files) > 0) {
   stop(
     "The following GTF files do not exist:\n",
@@ -98,7 +68,7 @@ if (length(missing_files) > 0) {
   )
 }
 
-message("Number of GTF files: ", length(gtf_paths))
+message("Number of SQANTI3 corrected GTF files: ", length(gtf_paths))
 
 # -----------------------------
 # Function to read novel transcripts
@@ -121,7 +91,7 @@ read_novel_transcripts <- function(gtf_path, sample_index) {
 
   tx_grl <- split(exons, exons$transcript_id)
 
-  # Append sample index so per-sample transcript IDs remain unique
+  # Append sample index so sample-specific SQANTI3 transcript IDs remain unique
   names(tx_grl) <- paste0(names(tx_grl), "_sample", sample_index)
 
   GRangesList(lapply(tx_grl, function(x) {
@@ -169,7 +139,7 @@ tx_meta <- tibble(
   select(transcript_id, gene_id, gene_id_core, fingerprint)
 
 # -----------------------------
-# Map Ensembl gene IDs to symbols
+# Map Ensembl gene IDs to gene symbols
 # -----------------------------
 
 message("Querying Ensembl BioMart for gene symbols...")
@@ -203,7 +173,9 @@ gene_map <- biomaRt::getBM(
 
 tx_meta <- tx_meta %>%
   left_join(gene_map, by = "gene_id_core") %>%
-  mutate(gene_symbol = coalesce(gene_symbol, gene_id_core))
+  mutate(
+    gene_symbol = coalesce(gene_symbol, gene_id_core)
+  )
 
 # -----------------------------
 # Assign unified novel transcript IDs
@@ -229,6 +201,7 @@ lookup <- tx_meta %>%
 # Write output
 # -----------------------------
 
-out_path <- file.path(opt$outdir, opt$output)
+out_path <- file.path(outdir, output_file)
 readr::write_csv(lookup, out_path)
 
+message("Wrote novel isoform translation table: ", out_path)
