@@ -1,7 +1,11 @@
+#!/usr/bin/env Rscript
+
 ################################################################################
-# Figure 1: Long-read RNA-seq isoform characterization
+# Figure 1: Long-read RNA-seq reveals high-quality transcriptome profiling and 
+#  isoform remodeling after peripheral nerve injury. 
 #
 # Panels:
+#   A: Project schematic
 #   B: Isoform length distribution
 #   C: Exon count distribution
 #   D: Isoforms per gene distribution
@@ -9,8 +13,13 @@
 #   F: Total novel isoforms
 #   G: Novel coding isoforms
 #
-# Author: Wendy Dong
-# Last updated: May 3, 2026
+# Inputs:
+#   - SQANTI3 classification files
+#   - SQANTI3 structural category summary table
+#
+# Outputs:
+#   - Publication-ready Figure 1 panels
+#
 ################################################################################
 
 # ==============================================================================
@@ -23,17 +32,27 @@ suppressPackageStartupMessages({
   library(grid)
 })
 
-# ---- User-defined paths ----
-data_dir <- "/Users/wendydong/Documents/WUSM PhD/Long Read RNA Seq/Long_read_results_updated"
-metrics_dir <- "/Users/wendydong/Documents/WUSM PhD/Long Read RNA Seq/Analysis_Long_Short_updated/sample_metrics"
-results_dir <- "/Users/wendydong/Documents/WUSM PhD/Writting/Manuscript_Long_Read_RNA/Figures/Figure_1"
+# ==============================================================================
+# User-defined directories
+# ==============================================================================
 
-if (!dir.exists(results_dir)) {
-  dir.create(results_dir, recursive = TRUE)
-}
+# Directory containing SQANTI3 classification outputs
+sqanti_dir <- "/path/to/SQANTI3_results"                         # <-- MODIFY HERE
 
-# ---- Input files ----
-classification_files <- c(
+# Directory containing processed sample metric summaries
+metrics_dir <- "/path/to/sample_metrics"                         # <-- MODIFY HERE
+
+# Output directory for Figure 1 panels
+figure_dir <- "/path/to/Figure_1_output"                         # <-- MODIFY HERE
+
+dir.create(figure_dir, recursive = TRUE, showWarnings = FALSE)
+
+# ==============================================================================
+# Input files
+# ==============================================================================
+
+# SQANTI3 classification files generated after filtering/rescue
+classification_files <- c(                                      # <-- MODIFY HERE IF NEEDED
   "Filtered_SQANTI3_Results/C0_Sciatic_1_filtered_RulesFilter_result_classification_with_rescue_flag_with_transcriptID.txt",
   "Filtered_SQANTI3_Results/C0_Sciatic_2_filtered_RulesFilter_result_classification_with_rescue_flag_with_transcriptID.txt",
   "Filtered_SQANTI3_Results/C0_Sciatic_3_filtered_RulesFilter_result_classification_with_rescue_flag_with_transcriptID.txt",
@@ -45,13 +64,43 @@ classification_files <- c(
   "Filtered_SQANTI3_Results/C7_Injured_Sciatic_3_filtered_RulesFilter_result_classification_with_rescue_flag_with_transcriptID.txt"
 )
 
-classification_paths <- file.path(data_dir, classification_files)
-category_summary_path <- file.path(metrics_dir, "Filtered_SQANTI3_Category_summary_FINAL.csv")
+classification_paths <- file.path(
+  sqanti_dir,
+  classification_files
+)
 
-stopifnot(all(file.exists(classification_paths)))
-stopifnot(file.exists(category_summary_path))
+# SQANTI3 structural category summary table
+category_summary_path <- file.path(
+  metrics_dir,
+  "Filtered_SQANTI3_Category_summary_FINAL.csv"
+)                                                                # <-- MODIFY HERE IF NEEDED
 
-# ---- Colors ----
+# ==============================================================================
+# Input validation
+# ==============================================================================
+
+missing_class_files <- classification_paths[!file.exists(classification_paths)]
+
+if (length(missing_class_files) > 0) {
+  stop(
+    "Missing SQANTI3 classification file(s):\n",
+    paste(missing_class_files, collapse = "\n"),
+    call. = FALSE
+  )
+}
+
+if (!file.exists(category_summary_path)) {
+  stop(
+    "Missing category summary file:\n",
+    category_summary_path,
+    call. = FALSE
+  )
+}
+
+# ==============================================================================
+# Colors
+# ==============================================================================
+
 condition_fill <- c(
   "C0 Control" = "#A6CEE3",
   "C3 Injured" = "#FFD580",
@@ -70,10 +119,22 @@ condition_fill_short <- c(
   "C7" = "#66BD63"
 )
 
-condition_levels <- c("C0 Control", "C3 Injured", "C7 Injured")
-condition_labels <- c("C0 Control" = "C0", "C3 Injured" = "C3", "C7 Injured" = "C7")
+condition_levels <- c(
+  "C0 Control",
+  "C3 Injured",
+  "C7 Injured"
+)
 
-# ---- Shared theme ----
+condition_labels <- c(
+  "C0 Control" = "C0",
+  "C3 Injured" = "C3",
+  "C7 Injured" = "C7"
+)
+
+# ==============================================================================
+# Shared plotting theme
+# ==============================================================================
+
 theme_pub <- function(base_size = 7) {
   theme_minimal(base_size = base_size) +
     theme(
@@ -85,17 +146,38 @@ theme_pub <- function(base_size = 7) {
       axis.text.y = element_text(size = 5),
       axis.title.x = element_text(size = 6, margin = margin(t = 3)),
       axis.title.y = element_text(size = 6, margin = margin(r = 3)),
-      plot.title = element_text(size = 7, face = "bold", hjust = 0.5, margin = margin(b = 4)),
+      plot.title = element_text(
+        size = 7,
+        face = "bold",
+        hjust = 0.5,
+        margin = margin(b = 4)
+      ),
       legend.key.size = unit(3, "mm"),
       legend.text = element_text(size = 5),
       legend.title = element_blank(),
-      plot.margin = margin(t = 8, r = 8, b = 4, l = 4, unit = "mm")
+      plot.margin = margin(
+        t = 8,
+        r = 8,
+        b = 4,
+        l = 4,
+        unit = "mm"
+      )
     )
 }
 
-save_panel <- function(plot, filename, width_mm = 50, height_mm = 50) {
+# ==============================================================================
+# Helper functions
+# ==============================================================================
+
+save_panel <- function(
+  plot,
+  filename,
+  width_mm = 50,
+  height_mm = 50
+) {
+
   ggsave(
-    filename = file.path(results_dir, filename),
+    filename = file.path(figure_dir, filename),
     plot = plot,
     width = width_mm,
     height = height_mm,
@@ -106,7 +188,9 @@ save_panel <- function(plot, filename, width_mm = 50, height_mm = 50) {
 
 get_sample_name <- function(path) {
   basename(path) %>%
-    str_remove("_filtered_RulesFilter_result_classification_with_rescue_flag_with_transcriptID.txt")
+    str_remove(
+      "_filtered_RulesFilter_result_classification_with_rescue_flag_with_transcriptID.txt"
+    )
 }
 
 get_condition_short <- function(x) {
