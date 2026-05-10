@@ -2,12 +2,9 @@
 
 # =========================
 # IsoQuant Long-Read Pipeline
+# Executed inside Docker container: etycksen/isoquant:latest
 # =========================
 
-# Activate conda environment
-export PATH=/miniconda/bin/:$PATH
-source /miniconda/etc/profile.d/conda.sh
-conda activate isoquant
 
 # =========================
 # Input Parameters
