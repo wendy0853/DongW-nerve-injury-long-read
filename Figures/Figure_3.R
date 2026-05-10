@@ -1,14 +1,18 @@
 #!/usr/bin/env Rscript
 
 ################################################################################
-# Figure 3: Gene-level and transcript-level differential expression comparison
+# Figure 3: Isoform-level analysis reveals differential transcript expression 
+#  independent of gene-level changes after peripheral nerve injury. 
 #
 #  Panels:
 #   A & D: Short-read differential gene expression volcano plots for C3/C7 vs. C0
 #   B & E: Long-read differential transcript expression volcano plots for C3/C7 vs. C0
 #   C & F: GO enrichment plots for DTE-only genes
 #
-#  Panels 
+#  Panels G - L are generated using:
+#     Plotting_isoform_expression.R
+#     Plotting_isoform_proportion.R
+#     Plotting_isoform_trackplot.R
 #
 ################################################################################
 
