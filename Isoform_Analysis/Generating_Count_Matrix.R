@@ -230,8 +230,8 @@ sample_dfs <- map2(
 
     readr::read_tsv(path, show_col_types = FALSE) %>%
       filter(!str_starts(transcript_id, "transcript")) %>%
-      select(transcript_id, est_counts) %>%
-      rename(!!sample_name := est_counts)
+      select(transcript_id, est_counts) %>%   # Change to tpm if want TPM Matrix
+      rename(!!sample_name := est_counts)  # Change to tpm if want TPM Matrix
   }
 )
 
