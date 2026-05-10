@@ -164,7 +164,7 @@ Results are summarized using:
 - p-value
 - FDR-adjusted p-value
 
-The output table is used by `/Figures/Figure_4_single_cell_plotting.R` to generate the enrichment dot plot.
+The output table is used by `/Figures/Figure_4_and_Figure_S5.R` to generate the enrichment dot plot.
 
 ---
 
