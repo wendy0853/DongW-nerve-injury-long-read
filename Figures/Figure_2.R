@@ -1,0 +1,578 @@
+#!/usr/bin/env Rscript
+
+################################################################################
+# Figure 2 plotting
+#
+# Purpose:
+#   Generate Figure 2 panels from completed DTE and DET remodeling analyses.
+#
+# Panels:
+#   A: DET distribution by direction
+#   B: Genes with single versus multiple DETs
+#   C: GO enrichment of multi-DET genes
+#   D: Emergence categories of DETs
+#   E: Structural remodeling categories among emerged-remodeling DETs
+#
+# Notes:
+#   DET emergence and structural remodeling classification are performed in:
+#     Isoform_Analysis/DET_Remodeling_Classification.R
+#
+# Panels F - H are generated using:
+#     Plotting_isoform_expression.R
+#     Plotting_isoform_proportion.R
+#     Plotting_isoform_trackplot.R
+#
+################################################################################
+
+suppressPackageStartupMessages({
+  library(tidyverse)
+  library(clusterProfiler)
+  library(org.Mm.eg.db)
+  library(scales)
+  library(grid)
+})
+
+# ==============================================================================
+# User-defined files/directories
+# ==============================================================================
+
+isoform_results_dir <- "/path/to/isoform_analysis_results"       # <-- MODIFY HERE
+det_classification_dir <- file.path(
+  isoform_results_dir,
+  "DET_Remodeling_Classification"
+)                                                                # <-- MODIFY HERE IF NEEDED
+
+figure_dir <- "/path/to/Figure_2_output"                         # <-- MODIFY HERE
+
+dir.create(figure_dir, recursive = TRUE, showWarnings = FALSE)
+
+# ==============================================================================
+# Input files
+# ==============================================================================
+
+res_c3_path <- file.path(
+  isoform_results_dir,
+  "C3_vs_C0_isoform_results.csv"
+)                                                                # <-- MODIFY HERE IF NEEDED
+
+res_c7_path <- file.path(
+  isoform_results_dir,
+  "C7_vs_C0_isoform_results.csv"
+)                                                                # <-- MODIFY HERE IF NEEDED
+
+det_emergence_path <- file.path(
+  det_classification_dir,
+  "DET_emergence_classification.csv"
+)                                                                # <-- MODIFY HERE IF NEEDED
+
+det_structural_path <- file.path(
+  det_classification_dir,
+  "DET_structural_remodeling_classification.csv"
+)                                                                # <-- MODIFY HERE IF NEEDED
+
+required_files <- c(
+  res_c3_path,
+  res_c7_path,
+  det_emergence_path,
+  det_structural_path
+)
+
+missing_files <- required_files[!file.exists(required_files)]
+
+if (length(missing_files) > 0) {
+  stop(
+    "Missing required file(s):\n",
+    paste(missing_files, collapse = "\n"),
+    call. = FALSE
+  )
+}
+
+# ==============================================================================
+# Parameters
+# ==============================================================================
+
+padj_cutoff <- 0.05                                               # <-- MODIFY HERE IF NEEDED
+lfc_cutoff <- 1                                                   # <-- MODIFY HERE IF NEEDED
+
+comparison_levels <- c("C3 vs. C0", "C7 vs. C0")
+
+comparison_colors <- c(
+  "C3 vs. C0" = "#E69F00",
+  "C7 vs. C0" = "#66BD63"
+)
+
+remodel_class_levels <- c(
+  "UTR Only",
+  "Noncoding",
+  "ORF Loss",
+  "ORF Gain",
+  "ORF Modification"
+)
+
+# ==============================================================================
+# Helper functions
+# ==============================================================================
+
+theme_pub <- function(base_size = 7) {
+  theme_classic(base_size = base_size) +
+    theme(
+      axis.line = element_line(color = "black", linewidth = 0.3),
+      axis.ticks = element_line(color = "black", linewidth = 0.3),
+      axis.ticks.length = unit(0.15, "cm"),
+      panel.grid = element_blank(),
+      axis.text.x = element_text(size = 5, hjust = 0.5, vjust = 0.5),
+      axis.text.y = element_text(size = 5),
+      axis.title.x = element_text(size = 6, margin = margin(t = 3)),
+      axis.title.y = element_text(size = 6, margin = margin(r = 3)),
+      plot.title = element_text(
+        size = 7,
+        face = "bold",
+        hjust = 0.5,
+        margin = margin(b = 4)
+      ),
+      legend.key.size = unit(3, "mm"),
+      legend.text = element_text(size = 5),
+      legend.title = element_blank(),
+      plot.margin = margin(t = 8, r = 4, b = 4, l = 4, unit = "mm")
+    )
+}
+
+save_panel <- function(plot, filename, width_mm, height_mm) {
+  ggsave(
+    filename = file.path(figure_dir, filename),
+    plot = plot,
+    width = width_mm,
+    height = height_mm,
+    units = "mm",
+    dpi = 600,
+    bg = "white"
+  )
+}
+
+pct_lab_frac <- function(x) sprintf("%.1f%%", 100 * x)
+pct_lab_value <- function(x) sprintf("%.1f%%", x)
+
+recode_contrast <- function(x) {
+  dplyr::recode(
+    x,
+    "C3_vs_C0" = "C3 vs. C0",
+    "C7_vs_C0" = "C7 vs. C0"
+  )
+}
+
+count_det_direction <- function(res, comparison_label) {
+  res %>%
+    filter(!is.na(padj), padj <= padj_cutoff, abs(log2FoldChange) >= lfc_cutoff) %>%
+    mutate(
+      direction = case_when(
+        log2FoldChange > lfc_cutoff ~ "Up",
+        log2FoldChange < -lfc_cutoff ~ "Down",
+        TRUE ~ NA_character_
+      )
+    ) %>%
+    filter(!is.na(direction)) %>%
+    count(direction) %>%
+    mutate(
+      n_signed = if_else(direction == "Down", -n, n),
+      comparison = factor(comparison_label, levels = comparison_levels)
+    )
+}
+
+to_entrez <- function(symbols) {
+  suppressMessages(
+    clusterProfiler::bitr(
+      unique(symbols),
+      fromType = "SYMBOL",
+      toType = "ENTREZID",
+      OrgDb = org.Mm.eg.db
+    )
+  ) %>%
+    pull(ENTREZID) %>%
+    unique()
+}
+
+parse_gene_ratio <- function(x) {
+  purrr::map_dbl(x, function(ratio) {
+    parts <- str_split(ratio, "/", simplify = TRUE)
+    as.numeric(parts[1]) / as.numeric(parts[2])
+  })
+}
+
+plot_stacked_percent <- function(plot_df, x_var, fill_var, y_lab, title) {
+  ggplot(plot_df, aes(x = {{ x_var }}, y = frac, fill = {{ fill_var }})) +
+    geom_col(width = 0.9, color = "black", linewidth = 0.25) +
+    geom_text(
+      aes(label = pct_lab_frac(frac)),
+      position = position_stack(vjust = 0.5),
+      size = 2
+    ) +
+    scale_y_continuous(
+      labels = scales::percent_format(accuracy = 1),
+      expand = c(0, 0)
+    ) +
+    labs(
+      x = NULL,
+      y = y_lab,
+      title = title,
+      fill = NULL
+    ) +
+    theme_pub() +
+    theme(
+      legend.position = "bottom",
+      legend.box = "horizontal",
+      legend.text = element_text(size = 6),
+      legend.spacing.y = unit(1, "mm"),
+      legend.spacing.x = unit(1, "mm"),
+      legend.box.margin = margin(t = -2, r = 0, b = 0, l = 0, unit = "mm")
+    )
+}
+
+# ==============================================================================
+# Load data
+# ==============================================================================
+
+res_c3 <- readr::read_csv(res_c3_path, show_col_types = FALSE)
+res_c7 <- readr::read_csv(res_c7_path, show_col_types = FALSE)
+
+res_list <- list(
+  C3_vs_C0 = res_c3,
+  C7_vs_C0 = res_c7
+)
+
+det_emergence <- readr::read_csv(det_emergence_path, show_col_types = FALSE)
+det_structural <- readr::read_csv(det_structural_path, show_col_types = FALSE)
+
+# ==============================================================================
+# Figure 2A: DET distribution by direction
+# ==============================================================================
+
+det_diverging <- bind_rows(
+  count_det_direction(res_list$C3_vs_C0, "C3 vs. C0"),
+  count_det_direction(res_list$C7_vs_C0, "C7 vs. C0")
+)
+
+max_val <- max(abs(det_diverging$n_signed), na.rm = TRUE)
+min_val <- min(det_diverging$n_signed, na.rm = TRUE)
+
+p_det_distribution <- ggplot(
+  det_diverging,
+  aes(x = comparison, y = n_signed, fill = comparison)
+) +
+  geom_col(color = "black", linewidth = 0.2) +
+  geom_text(
+    aes(label = abs(n_signed)),
+    position = position_stack(vjust = 0.5),
+    hjust = 0.5,
+    size = 2,
+    color = "black"
+  ) +
+  geom_hline(yintercept = 0, linewidth = 0.2, linetype = "dashed") +
+  scale_y_continuous(
+    limits = c(min_val, max_val),
+    breaks = c(min_val * 0.6, 0, max_val * 0.6),
+    labels = c("Decrease", "", "Increase")
+  ) +
+  scale_fill_manual(values = comparison_colors) +
+  labs(x = NULL, y = NULL, title = "DET Distribution") +
+  theme_pub() +
+  theme(
+    legend.position = "none",
+    axis.text.x = element_text(size = 6),
+    axis.text.y = element_text(size = 6, angle = 90, hjust = 0.5),
+    plot.margin = margin(t = 8, r = 2, b = 4, l = 4, unit = "mm")
+  )
+
+save_panel(
+  p_det_distribution,
+  "Fig2A_DET_Distribution.png",
+  width_mm = 40,
+  height_mm = 60
+)
+
+readr::write_csv(
+  det_diverging,
+  file.path(figure_dir, "Fig2A_DET_distribution_source_data.csv")
+)
+
+# ==============================================================================
+# Figure 2B: Genes with multiple DETs
+# ==============================================================================
+
+significant_dets <- bind_rows(
+  res_c3 %>% mutate(contrast = "C3_vs_C0"),
+  res_c7 %>% mutate(contrast = "C7_vs_C0")
+) %>%
+  filter(!is.na(padj), padj <= padj_cutoff, abs(log2FoldChange) >= lfc_cutoff) %>%
+  mutate(
+    contrast_pretty = factor(recode_contrast(contrast), levels = comparison_levels)
+  ) %>%
+  distinct(transcript_id, contrast, .keep_all = TRUE)
+
+multi_det_gene_table <- significant_dets %>%
+  count(contrast_pretty, gene_symbol, name = "n_det_isoforms") %>%
+  mutate(
+    det_gene_class = if_else(n_det_isoforms >= 2, "≥2 DETs", "1 DET"),
+    det_gene_class = factor(det_gene_class, levels = c("≥2 DETs", "1 DET"))
+  )
+
+multi_det_genes <- multi_det_gene_table %>%
+  filter(det_gene_class == "≥2 DETs") %>%
+  select(gene_symbol, contrast_pretty)
+
+multi_det_plot_df <- multi_det_gene_table %>%
+  count(contrast_pretty, det_gene_class) %>%
+  group_by(contrast_pretty) %>%
+  mutate(frac = n / sum(n)) %>%
+  ungroup()
+
+p_multi_det_genes <- plot_stacked_percent(
+  plot_df = multi_det_plot_df,
+  x_var = contrast_pretty,
+  fill_var = det_gene_class,
+  y_lab = "Percentage of DET-associated genes",
+  title = "Genes with Multiple DETs"
+)
+
+save_panel(
+  p_multi_det_genes,
+  "Fig2B_MultiDET_Genes.png",
+  width_mm = 50,
+  height_mm = 65
+)
+
+readr::write_csv(
+  multi_det_genes,
+  file.path(figure_dir, "DET_multi.csv")
+)
+
+readr::write_csv(
+  multi_det_plot_df,
+  file.path(figure_dir, "Fig2B_MultiDET_genes_source_data.csv")
+)
+
+# ==============================================================================
+# Figure 2C: GO enrichment of multi-DET genes
+# ==============================================================================
+
+run_multi_det_go <- function(target_contrast_pretty, top_n = 8, simplify_cutoff = 0.6) {
+  target_genes <- multi_det_genes %>%
+    filter(contrast_pretty == target_contrast_pretty) %>%
+    distinct(gene_symbol) %>%
+    pull(gene_symbol)
+
+  universe_genes <- bind_rows(
+    res_c3 %>% mutate(contrast_pretty = "C3 vs. C0"),
+    res_c7 %>% mutate(contrast_pretty = "C7 vs. C0")
+  ) %>%
+    filter(contrast_pretty == target_contrast_pretty) %>%
+    pull(gene_symbol) %>%
+    unique()
+
+  ego <- enrichGO(
+    gene = to_entrez(target_genes),
+    universe = to_entrez(universe_genes),
+    OrgDb = org.Mm.eg.db,
+    keyType = "ENTREZID",
+    ont = "BP",
+    pAdjustMethod = "BH",
+    pvalueCutoff = padj_cutoff,
+    qvalueCutoff = padj_cutoff,
+    readable = TRUE
+  )
+
+  simplify(
+    ego,
+    cutoff = simplify_cutoff,
+    by = "p.adjust",
+    select_fun = min
+  )@result %>%
+    arrange(p.adjust) %>%
+    slice_head(n = top_n)
+}
+
+plot_go_dot_from_df <- function(plot_df, title, dot_color, fdr_max = padj_cutoff) {
+  df <- plot_df %>%
+    filter(p.adjust <= fdr_max) %>%
+    mutate(
+      gene_ratio_num = parse_gene_ratio(GeneRatio),
+      Description = str_wrap(Description, width = 40),
+      neglog10_fdr = -log10(p.adjust + 1e-300)
+    ) %>%
+    arrange(Count) %>%
+    mutate(Description = factor(Description, levels = unique(Description)))
+
+  ggplot(df, aes(x = gene_ratio_num, y = Description)) +
+    geom_point(aes(size = Count, color = neglog10_fdr)) +
+    scale_size(range = c(0.8, 3), breaks = pretty_breaks(n = 4)) +
+    scale_color_gradient(
+      low = "grey30",
+      high = dot_color,
+      breaks = pretty_breaks(n = 4)
+    ) +
+    labs(
+      title = title,
+      x = "Gene ratio",
+      y = NULL,
+      color = expression(-log[10]("adj. P")),
+      size = "\nCount"
+    ) +
+    theme_pub() +
+    theme(
+      panel.grid.major = element_line(linewidth = 0.15, color = "grey90"),
+      panel.grid.minor = element_blank(),
+      axis.text.x = element_text(size = 5),
+      axis.text.y = element_text(size = 5),
+      axis.title = element_text(size = 5),
+      legend.title = element_text(size = 4),
+      legend.text = element_text(size = 4),
+      legend.key.height = unit(0.35, "cm"),
+      legend.key.width = unit(0.2, "cm"),
+      legend.spacing.y = unit(0.1, "cm")
+    ) +
+    guides(
+      color = guide_colorbar(
+        order = 1,
+        barheight = unit(1.5, "cm"),
+        barwidth = unit(0.25, "cm")
+      ),
+      size = guide_legend(
+        order = 2,
+        keyheight = unit(0.35, "cm"),
+        keywidth = unit(0.35, "cm")
+      )
+    )
+}
+
+go_c7_df <- run_multi_det_go("C7 vs. C0", top_n = 8)
+
+p_go_c7 <- plot_go_dot_from_df(
+  plot_df = go_c7_df,
+  title = "GO: C7 Multi-DET Genes",
+  dot_color = comparison_colors[["C7 vs. C0"]]
+)
+
+save_panel(
+  p_go_c7,
+  "Fig2C_C7_MultiDET_GO.png",
+  width_mm = 62,
+  height_mm = 55
+)
+
+readr::write_csv(
+  go_c7_df,
+  file.path(figure_dir, "Fig2C_C7_MultiDET_GO_source_data.csv")
+)
+
+# ==============================================================================
+# Figure 2D: Emergence categories of DETs
+# ==============================================================================
+
+emergence_plot_df <- det_emergence %>%
+  mutate(
+    contrast_pretty = factor(contrast_pretty, levels = comparison_levels),
+    baseline_status = factor(
+      baseline_status,
+      levels = c(
+        "Emerged: Remodeling",
+        "Emerged: Activation",
+        "Expressed at Baseline"
+      )
+    )
+  ) %>%
+  count(contrast_pretty, baseline_status) %>%
+  group_by(contrast_pretty) %>%
+  mutate(frac = n / sum(n)) %>%
+  ungroup()
+
+p_emergence <- plot_stacked_percent(
+  plot_df = emergence_plot_df,
+  x_var = contrast_pretty,
+  fill_var = baseline_status,
+  y_lab = "Percentage of DETs",
+  title = "Emergence of DETs"
+) +
+  scale_fill_discrete(labels = function(x) str_wrap(x, width = 18))
+
+save_panel(
+  p_emergence,
+  "Fig2D_DET_Emergence.png",
+  width_mm = 52,
+  height_mm = 65
+)
+
+readr::write_csv(
+  emergence_plot_df,
+  file.path(figure_dir, "Fig2D_DET_emergence_plot_source_data.csv")
+)
+
+# ==============================================================================
+# Figure 2E: Structural remodeling among emerged-remodeling DETs
+# ==============================================================================
+
+remodel_plot_df <- det_structural %>%
+  filter(final_class %in% remodel_class_levels) %>%
+  mutate(
+    contrast_pretty = factor(contrast_pretty, levels = comparison_levels),
+    final_class = factor(final_class, levels = remodel_class_levels)
+  ) %>%
+  count(contrast_pretty, final_class, name = "n_isoforms") %>%
+  complete(
+    contrast_pretty = comparison_levels,
+    final_class = remodel_class_levels,
+    fill = list(n_isoforms = 0)
+  ) %>%
+  group_by(contrast_pretty) %>%
+  mutate(value = 100 * n_isoforms / sum(n_isoforms)) %>%
+  ungroup()
+
+p_remodeling <- ggplot(
+  remodel_plot_df,
+  aes(x = contrast_pretty, y = value, fill = final_class)
+) +
+  geom_col(width = 0.9, color = "black", linewidth = 0.25) +
+  geom_text(
+    aes(label = pct_lab_value(value)),
+    position = position_stack(vjust = 0.5),
+    size = 1.6
+  ) +
+  scale_y_continuous(
+    expand = c(0, 0),
+    labels = function(x) paste0(x, "%"),
+    position = "right"
+  ) +
+  coord_cartesian(ylim = c(0, 100)) +
+  scale_fill_discrete(
+    palette = "Set2",
+    labels = function(x) str_wrap(x, width = 18)
+  ) +
+  labs(
+    x = NULL,
+    y = NULL,
+    title = "Remodeling of DETs",
+    fill = NULL
+  ) +
+  theme_pub() +
+  theme(
+    legend.position = "bottom",
+    legend.box = "horizontal",
+    legend.key.size = unit(2, "mm"),
+    legend.text = element_text(size = 5),
+    legend.spacing.y = unit(1, "mm"),
+    legend.spacing.x = unit(1, "mm"),
+    legend.box.margin = margin(t = -2, r = -4, b = 0, l = 0, unit = "mm")
+  ) +
+  guides(fill = guide_legend(nrow = 2, byrow = FALSE))
+
+save_panel(
+  p_remodeling,
+  "Fig2E_UTR_CDS_ORF_Remodeling.png",
+  width_mm = 50,
+  height_mm = 68
+)
+
+readr::write_csv(
+  remodel_plot_df,
+  file.path(figure_dir, "Fig2E_UTR_CDS_ORF_remodeling_plot_source_data.csv")
+)
+
+message("Figure 2 plotting complete. Outputs saved to: ", figure_dir)
