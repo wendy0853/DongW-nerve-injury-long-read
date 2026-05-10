@@ -33,7 +33,7 @@ transcript models.
 ### 1. Custom Reference Generation
 
 ```text
-Creating_new_reference_for_Golli_Compact_Mbp.sh
+Creating_new_reference_for_Golli_Classic_Mbp.sh
 run_cellranger_mkref.sh
 ```
 
