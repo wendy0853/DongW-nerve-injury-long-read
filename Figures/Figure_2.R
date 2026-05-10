@@ -12,6 +12,8 @@
 #   E: Structural remodeling categories among emerged-remodeling DETs
 #
 # Notes:
+#   DESeq2 for DTE analysis are performed in:
+#      Isoform_Analysis/DTE_Analysis_DESeq2.R
 #   DET emergence and structural remodeling classification are performed in:
 #     Isoform_Analysis/DET_Remodeling_Classification.R
 #
