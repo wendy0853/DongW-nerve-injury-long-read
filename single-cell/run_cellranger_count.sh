@@ -1,74 +1,64 @@
-export LSF_DOCKER_VOLUMES='/storage1/fs1/jin810:/storage1/fs1/jin810 /home/d.wendy:/home/d.wendy'
+#!/bin/bash
 
-LSF_DOCKER_PRESERVE_ENVIRONMENT=false bsub -G compute-jin810-t3 -q subscription -sla jin810_t3 -M 200GB -R 'rusage[mem=150GB]' \
--a 'docker(jinlab/velocytoxcellranger:vs0.17.17x9.0.1)' \
+# =============================================================================
+# Run Cell Ranger count for single-nucleus RNA-seq alignment
+# =============================================================================
+#
+# Purpose:
+#   This script runs Cell Ranger count using the custom Mbp-split reference
+#   generated with:
+#
+#       run_cellranger_mkref.sh
+#
+# Features enabled:
+#   - BAM generation
+#   - intronic read inclusion
+#
+# Docker image used:
+#   jinlab/velocytoxcellranger:vs0.17.17x9.0.1
+#
+# Notes:
+#   This script was originally executed on the WashU RIS HPC cluster using
+#   Docker + LSF. Institution-specific submission commands were removed and
+#   replaced with a generalized Cell Ranger command.
+#
+# =============================================================================
+
+set -euo pipefail
+
+# -----------------------------
+# User-defined sample information
+# -----------------------------
+
+SAMPLE_ID="C0_1"                                            # <-- MODIFY HERE
+FASTQ_SAMPLE_NAME="WT_Cell_Sciatic_1"                            # <-- MODIFY HERE
+
+# -----------------------------
+# User-defined paths
+# -----------------------------
+
+TRANSCRIPTOME_REF="/path/to/GRCm39_MbpSplit"                    # <-- MODIFY HERE
+FASTQ_DIR="/path/to/FASTQ_directory"                            # <-- MODIFY HERE
+OUTPUT_DIR="/path/to/output_directory"                          # <-- MODIFY HERE
+
+# -----------------------------
+# Resource settings
+# -----------------------------
+
+LOCAL_CORES=16                                                  # <-- MODIFY HERE IF NEEDED
+LOCAL_MEM=120                                                   # <-- MODIFY HERE IF NEEDED
+
+# -----------------------------
+# Run Cell Ranger count
+# -----------------------------
+
 cellranger count \
---id WT_Mbp_1 \
---transcriptome /storage1/fs1/jin810/Active/References/GRCm39_10X/GRCm39_MbpSplit \
---fastqs /storage1/fs1/jin810/Active/Projects/snRNAseq/20241009_GEMX_Julie/FASTQ \
---sample WT_Nuc_Sciatic_1 \
---output-dir /storage1/fs1/jin810/Active/Projects/snRNAseq/20260212_Golli_Compact_Mbp_Alignment/WT_Mbp_1 \
---create-bam=true --include-introns=true --localcores=16 --localmem=120
-
-LSF_DOCKER_PRESERVE_ENVIRONMENT=false bsub -G compute-jin810-t3 -q subscription -sla jin810_t3 -M 200GB -R 'rusage[mem=150GB]' \
--a 'docker(jinlab/velocytoxcellranger:vs0.17.17x9.0.1)' \
-cellranger count \
---id WT_Mbp_2 \
---transcriptome /storage1/fs1/jin810/Active/References/GRCm39_10X/GRCm39_MbpSplit \
---fastqs /storage1/fs1/jin810/Active/Projects/snRNAseq/20241009_GEMX_Julie/FASTQ \
---sample WT_Nuc_Sciatic_2 \
---output-dir /storage1/fs1/jin810/Active/Projects/snRNAseq/20260212_Golli_Compact_Mbp_Alignment/WT_Mbp_2 \
---create-bam=true --include-introns=true --localcores=16 --localmem=120
-
-LSF_DOCKER_PRESERVE_ENVIRONMENT=false bsub -G compute-jin810-t3 -q subscription -sla jin810_t3 -M 200GB -R 'rusage[mem=150GB]' \
--a 'docker(jinlab/velocytoxcellranger:vs0.17.17x9.0.1)' \
-cellranger count \
---id TH_Mbp_1 \
---transcriptome /storage1/fs1/jin810/Active/References/GRCm39_10X/GRCm39_MbpSplit \
---fastqs /storage1/fs1/jin810/Active/Projects/snRNAseq/20241009_GEMX_Julie/FASTQ \
---sample TH_Nuc_Sciatic_1 \
---output-dir /storage1/fs1/jin810/Active/Projects/snRNAseq/20260212_Golli_Compact_Mbp_Alignment/TH_Mbp_1 \
---create-bam=true --include-introns=true --localcores=16 --localmem=120
-
-LSF_DOCKER_PRESERVE_ENVIRONMENT=false bsub -G compute-jin810-t3 -q subscription -sla jin810_t3 -M 200GB -R 'rusage[mem=150GB]' \
--a 'docker(jinlab/velocytoxcellranger:vs0.17.17x9.0.1)' \
-cellranger count \
---id TH_Mbp_2 \
---transcriptome /storage1/fs1/jin810/Active/References/GRCm39_10X/GRCm39_MbpSplit \
---fastqs /storage1/fs1/jin810/Active/Projects/snRNAseq/20241009_GEMX_Julie/FASTQ \
---sample TH_Nuc_Sciatic_2 \
---output-dir /storage1/fs1/jin810/Active/Projects/snRNAseq/20260212_Golli_Compact_Mbp_Alignment/TH_Mbp_2 \
---create-bam=true --include-introns=true --localcores=16 --localmem=120
-
-LSF_DOCKER_PRESERVE_ENVIRONMENT=false bsub -G compute-jin810-t3 -q subscription -sla jin810_t3 -M 200GB -R 'rusage[mem=150GB]' \
--a 'docker(jinlab/velocytoxcellranger:vs0.17.17x9.0.1)' \
-cellranger count \
---id SOD1_Mbp_1 \
---transcriptome /storage1/fs1/jin810/Active/References/GRCm39_10X/GRCm39_MbpSplit \
---fastqs /storage1/fs1/jin810/Active/Projects/snRNAseq/20250925_SOD1_G93A_SN_NS0_NS1/FASTQ \
---sample GEMX_M_NS1_SOD1_G93A_Sciatic \
---output-dir /storage1/fs1/jin810/Active/Projects/snRNAseq/20260212_Golli_Compact_Mbp_Alignment/SOD1_Mbp_1 \
---create-bam=true --include-introns=true --localcores=16 --localmem=120
-
-LSF_DOCKER_PRESERVE_ENVIRONMENT=false bsub -G compute-jin810-t3 -q subscription -sla jin810_t3 -M 200GB -R 'rusage[mem=150GB]' \
--a 'docker(jinlab/velocytoxcellranger:vs0.17.17x9.0.1)' \
-cellranger count \
---id SOD1_Mbp_2 \
---transcriptome /storage1/fs1/jin810/Active/References/GRCm39_10X/GRCm39_MbpSplit \
---fastqs /storage1/fs1/jin810/Active/Projects/snRNAseq/20251217_GEMX_SOD1_G93A_NS0_Fem_Sural_NS01_SN/FASTQ \
---sample LIB128344-DIL01-DIL01_23GHN2LT4 \
---output-dir /storage1/fs1/jin810/Active/Projects/snRNAseq/20260212_Golli_Compact_Mbp_Alignment/SOD1_Mbp_2 \
---create-bam=true --include-introns=true --localcores=16 --localmem=120
-
-LSF_DOCKER_PRESERVE_ENVIRONMENT=false bsub -G compute-jin810-t3 -q subscription -sla jin810_t3 -M 200GB -R 'rusage[mem=150GB]' \
--a 'docker(jinlab/velocytoxcellranger:vs0.17.17x9.0.1)' \
-cellranger count \
---id C3_1 \
---transcriptome /storage1/fs1/jin810/Active/References/GRCm39_10X/GRCm39_MbpSplit \
---fastqs /storage1/fs1/jin810/Active/U19_Data_Core/1_Project/Milbrandt_Lab/Datasets/isnat_data_22Feb2026/SRR18355056 \
---sample Sample_1181-RG-01 \
---output-dir /storage1/fs1/jin810/Active/Projects/snRNAseq/20260223_Golli_Compact_Mbp_iSNAT/C3_1 \
---create-bam=true --include-introns=true --localcores=16 --localmem=120
-
-
-LSF_DOCKER_ENTRYPOINT=/bin/sh bsub -Is -G compute-jin810 -q general-interactive -n 4 -a 'docker(elle/basic:vs5)' /bin/sh
+  --id="${SAMPLE_ID}" \
+  --transcriptome="${TRANSCRIPTOME_REF}" \
+  --fastqs="${FASTQ_DIR}" \
+  --sample="${FASTQ_SAMPLE_NAME}" \
+  --output-dir="${OUTPUT_DIR}" \
+  --create-bam=true \
+  --include-introns=true \
+  --localcores="${LOCAL_CORES}" \
+  --localmem="${LOCAL_MEM}"
