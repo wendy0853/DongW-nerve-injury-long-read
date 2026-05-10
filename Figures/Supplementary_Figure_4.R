@@ -170,15 +170,3 @@ for (comparison in names(comparison_config)) {
     filename = paste0("FigS4a_", comparison, "_DGE_DTE_Venn.png")
   )
 }
-
-# ==============================================================================
-# Figure S4b-c
-# ==============================================================================
-
-panel_note <- tibble::tribble(
-  ~panel, ~description, ~script,
-  "S4b-c", "DGE and DTE volcano plots", "Figures/Figure_3.R"
-)
-
-print(panel_note)
-
