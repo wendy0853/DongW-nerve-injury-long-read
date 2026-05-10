@@ -1,13 +1,46 @@
-export PATH=/miniconda/bin/:$PATH && \
-source /miniconda/etc/profile.d/conda.sh && \
-conda activate isoquant && \
-cat /storage1/fs1/jin810/Active/Projects/RNAseq/Long_read_RNAseq_Crush_Injury/Long_read/C0_Control/Long_read_raw/fastq_Dorado/C0_Sciatic_1/*.fastq | gzip -c > ./storage1/fs1/jin810/Active/Projects/RNAseq/Long_read_RNAseq_Crush_Injury/Long_read/C0_Control/Long_read_raw/fastq_Dorado/C0_Sciatic_1/C0_Sciatic_1.fastq.gz && \
-isoquant.py -d nanopore --stranded forward \
---fastq /storage1/fs1/jin810/Active/Projects/RNAseq/Long_read_RNAseq_Crush_Injury/Long_read/C0_Control/Long_read_raw/fastq_Dorado/C0_Sciatic_1/C0_Sciatic_1.fastq.gz \
---reference /storage1/fs1/jin810/Active/References/GRCm39/GRCm39.genome.fa.gz \
---genedb /storage1/fs1/jin810/Active/References/GRCm39/gencode.vM38.chr_patch_hapl_scaff.annotation.gtf.gz \
+#!/bin/bash
+
+# =========================
+# IsoQuant Long-Read Pipeline
+# =========================
+
+# Activate conda environment
+export PATH=/miniconda/bin/:$PATH
+source /miniconda/etc/profile.d/conda.sh
+conda activate isoquant
+
+# =========================
+# Input Parameters
+# =========================
+
+SAMPLE_NAME="C0_Sciatic_1" #<-- Change for your sample
+
+FASTQ_DIR="/path/to/fastq_files"
+OUTPUT_DIR="/path/to/output_directory"
+
+REFERENCE_FASTA="/path/to/GRCm39.genome.fa.gz"
+REFERENCE_GTF="/path/to/gencode.vM38.annotation.gtf.gz"
+
+# =========================
+# Merge FASTQ Files
+# =========================
+
+cat ${FASTQ_DIR}/*.fastq | gzip -c > ${OUTPUT_DIR}/${SAMPLE_NAME}.fastq.gz
+
+# =========================
+# Run IsoQuant
+# =========================
+
+isoquant.py \
+-d nanopore \
+--stranded forward \
+--fastq ${OUTPUT_DIR}/${SAMPLE_NAME}.fastq.gz \
+--reference ${REFERENCE_FASTA} \
+--genedb ${REFERENCE_GTF} \
 --complete_genedb \
---sqanti_output --check_canonical --count_exons \
+--sqanti_output \
+--check_canonical \
+--count_exons \
 --report_novel_unspliced true \
---output /storage1/fs1/jin810/Active/Projects/RNAseq/Long_read_RNAseq_Crush_Injury/Long_read/C0_Control/IsoQuant_Results_updated \
---prefix C0_Sciatic_1
+--output ${OUTPUT_DIR} \
+--prefix ${SAMPLE_NAME}
