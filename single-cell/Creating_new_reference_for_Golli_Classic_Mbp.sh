@@ -9,7 +9,7 @@
 #
 #     1. Removing the original canonical Mbp gene annotation
 #     2. Creating a custom Mbp_Golli gene model
-#     3. Creating a custom Mbp_Compact gene model
+#     3. Creating a custom Mbp_Classic gene model
 #     4. Writing a modified GTF for downstream Cell Ranger mkref
 #
 # Input:
@@ -84,11 +84,11 @@ grep -m 1 'gene_name "Mbp"' "${GTF_IN}" || {
 # Define exon IDs used for custom Mbp models
 # -----------------------------
 #
-# These exon IDs were selected to distinguish Golli-associated and compact
+# These exon IDs were selected to distinguish Golli-associated and classic
 # myelin-associated Mbp transcript models in the custom Cell Ranger reference.
 
 GOLLI_PATTERNS="${WORKDIR}/MbpGolli.patterns.txt"
-COMPACT_PATTERNS="${WORKDIR}/MbpCompact.patterns.txt"
+CLASSIC_PATTERNS="${WORKDIR}/MbpClassic.patterns.txt"
 
 cat > "${GOLLI_PATTERNS}" << 'EOF'
 exon_id "ENSMUSE00000571789"
@@ -97,7 +97,7 @@ exon_id "ENSMUSE00000700190"
 exon_id "ENSMUSE00001241294"
 EOF
 
-cat > "${COMPACT_PATTERNS}" << 'EOF'
+cat > "${CLASSIC_PATTERNS}" << 'EOF'
 exon_id "ENSMUSE00000376561"
 exon_id "ENSMUSE00001457516"
 exon_id "ENSMUSE00000392899"
@@ -113,17 +113,17 @@ grep -F -f "${GOLLI_PATTERNS}" "${GTF_IN}" | head -n 5 || true
 echo "Number of Golli exon hits:"
 grep -F -f "${GOLLI_PATTERNS}" "${GTF_IN}" | wc -l
 
-echo "Compact exon hits:"
-grep -F -f "${COMPACT_PATTERNS}" "${GTF_IN}" | head -n 5 || true
-echo "Number of Compact exon hits:"
-grep -F -f "${COMPACT_PATTERNS}" "${GTF_IN}" | wc -l
+echo "Classic exon hits:"
+grep -F -f "${CLASSIC_PATTERNS}" "${GTF_IN}" | head -n 5 || true
+echo "Number of Classic exon hits:"
+grep -F -f "${CLASSIC_PATTERNS}" "${GTF_IN}" | wc -l
 
 # -----------------------------
 # Build minimal exon GTFs
 # -----------------------------
 
 GOLLI_EXONS="${WORKDIR}/Mbp_Golli.exons.min.gtf"
-COMPACT_EXONS="${WORKDIR}/Mbp_Compact.exons.min.gtf"
+CLASSIC_EXONS="${WORKDIR}/Mbp_Classic.exons.min.gtf"
 
 grep -F -f "${GOLLI_PATTERNS}" "${GTF_IN}" |
   awk -F'\t' 'BEGIN{OFS="\t"} $0 !~ /^#/ && $3=="exon" {
@@ -137,7 +137,7 @@ grep -F -f "${GOLLI_PATTERNS}" "${GTF_IN}" |
     }
   }' > "${GOLLI_EXONS}"
 
-grep -F -f "${COMPACT_PATTERNS}" "${GTF_IN}" |
+grep -F -f "${CLASSIC_PATTERNS}" "${GTF_IN}" |
   awk -F'\t' 'BEGIN{OFS="\t"} $0 !~ /^#/ && $3=="exon" {
     ex="NA";
     if (match($9, /exon_id "([^"]+)"/, a)) ex=a[1];
@@ -145,22 +145,22 @@ grep -F -f "${COMPACT_PATTERNS}" "${GTF_IN}" |
     if (!(key in seen)) {
       seen[key]=1;
       print $1,"custom","exon",$4,$5,".",$7,".",
-        "gene_id \"Mbp_Compact\"; transcript_id \"Mbp_Compact_tx\"; gene_name \"Mbp_Compact\"; transcript_name \"Mbp_Compact_tx\"; exon_id \""ex"\";"
+        "gene_id \"Mbp_Classic\"; transcript_id \"Mbp_Classic_tx\"; gene_name \"Mbp_Classic\"; transcript_name \"Mbp_Classic_tx\"; exon_id \""ex"\";"
     }
-  }' > "${COMPACT_EXONS}"
+  }' > "${CLASSIC_EXONS}"
 
 # -----------------------------
 # Validate custom exon GTFs
 # -----------------------------
 
 awk -F'\t' '$0 !~ /^#/ && NF!=9{print "BAD",FNR,NF; exit 1}' "${GOLLI_EXONS}"
-awk -F'\t' '$0 !~ /^#/ && NF!=9{print "BAD",FNR,NF; exit 1}' "${COMPACT_EXONS}"
+awk -F'\t' '$0 !~ /^#/ && NF!=9{print "BAD",FNR,NF; exit 1}' "${CLASSIC_EXONS}"
 
 echo "Unique genomic exon intervals retained:"
 echo -n "  Golli:   "
 wc -l "${GOLLI_EXONS}"
-echo -n "  Compact: "
-wc -l "${COMPACT_EXONS}"
+echo -n "  Classic: "
+wc -l "${CLASSIC_EXONS}"
 
 # -----------------------------
 # Build gene and transcript records
@@ -191,15 +191,15 @@ make_gene_tx_simple () {
 }
 
 GOLLI_GENE_TX="${WORKDIR}/Mbp_Golli.gene_tx.gtf"
-COMPACT_GENE_TX="${WORKDIR}/Mbp_Compact.gene_tx.gtf"
+CLASSIC_GENE_TX="${WORKDIR}/Mbp_Classic.gene_tx.gtf"
 
 make_gene_tx_simple "${GOLLI_EXONS}" \
   "Mbp_Golli" "Mbp_Golli" "Mbp_Golli_tx" "Mbp_Golli_tx" \
   > "${GOLLI_GENE_TX}"
 
-make_gene_tx_simple "${COMPACT_EXONS}" \
-  "Mbp_Compact" "Mbp_Compact" "Mbp_Compact_tx" "Mbp_Compact_tx" \
-  > "${COMPACT_GENE_TX}"
+make_gene_tx_simple "${CLASSIC_EXONS}" \
+  "Mbp_Classic" "Mbp_Classic" "Mbp_Classic_tx" "Mbp_Classic_tx" \
+  > "${CLASSIC_GENE_TX}"
 
 # -----------------------------
 # Remove original Mbp and append custom split annotations
@@ -215,7 +215,7 @@ awk -F'\t' -v gid="${MBP_GENE_ID}" '
 
 cat "${GENES_NO_MBP}" \
     "${GOLLI_GENE_TX}" "${GOLLI_EXONS}" \
-    "${COMPACT_GENE_TX}" "${COMPACT_EXONS}" \
+    "${CLASSIC_GENE_TX}" "${CLASSIC_EXONS}" \
   > "${GENES_MBP_SPLIT}"
 
 # -----------------------------
