@@ -1,0 +1,16 @@
+title: "Isoform Remodeling Shapes Peripheral Nerve Response to Injury"
+description: "Long-read transcriptomic analysis of peripheral nerve injury"
+theme: minima
+markdown: kramdown
+
+plugins:
+  - jekyll-feed
+  - jekyll-seo-tag
+
+header_pages:
+  - index.md
+
+show_downloads: false
+
+github:
+  repository_url: https://github.com/wendy0853/DongW-nerve-injury-long-read
