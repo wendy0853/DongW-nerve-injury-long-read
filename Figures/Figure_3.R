@@ -14,6 +14,12 @@
 #     Plotting_isoform_proportion.R
 #     Plotting_isoform_trackplot.R
 #
+# Notes:
+#   DESeq2 for DTE analysis are performed in:
+#      Isoform_Analysis/DTE_Analysis_DESeq2.R
+#   DESeq2 for DGE analysis are performed in:
+#      Shhort_Read/DGE_Analysis_DESeq2.R
+#
 ################################################################################
 
 # ==============================================================================
