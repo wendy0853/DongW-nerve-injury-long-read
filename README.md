@@ -1,6 +1,6 @@
 # Isoform Remodeling Shapes Peripheral Nerve Response to Injury
 
-Companion repository for the submitted manuscript **Dong W et al. Isoform Remodeling Shapes Peripheral Nerve Response to Injury. (2026)**
+Companion repository for the submitted manuscript **Dong W et al. Peripheral Nerve Injury Engages Transcript Isoform Remodeling to Coordinate Cellular and Extracellular Response. (2026)**
 
 This repository contains the computational workflows, analysis scripts, and supporting resources used to generate and analyze long-read and short-read transcriptomic datasets from mouse sciatic nerve crush injury.
 
@@ -16,7 +16,7 @@ An interactive companion browser for exploring transcript- and gene-level result
 
 If you use this repository or analysis framework, please cite:
 
-> Dong W et al. *Isoform Remodeling Shapes Peripheral Nerve Response to Injury.* (2026)
+> Dong W et al. *Peripheral Nerve Injury Engages Transcript Isoform Remodeling to Coordinate Cellular and Extracellular Response.* (2026)
 
 ## Study Design
 
