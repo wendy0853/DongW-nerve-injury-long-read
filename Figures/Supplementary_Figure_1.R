@@ -8,8 +8,8 @@
 #   summary plots.
 #
 # Panels:
-#   S2a: PCA plot from variance-stabilized transcript counts
-#   S2b: Heatmap of top differentially expressed transcripts
+#   S1a: PCA plot from variance-stabilized transcript counts
+#   S1b: Heatmap of top differentially expressed transcripts
 ################################################################################
 
 suppressPackageStartupMessages({
@@ -121,7 +121,7 @@ res_list <- list(
 )
 
 # ==============================================================================
-# Figure S2a: PCA plot
+# Figure S1a: PCA plot
 # ==============================================================================
 
 pca_data <- plotPCA(vsd, intgroup = c("time_point", "treatment"), returnData = TRUE)
@@ -148,7 +148,7 @@ save_panel(
 )
 
 # ==============================================================================
-# Figure S2b: Heatmap of top DETs
+# Figure S1b: Heatmap of top DETs
 # ==============================================================================
 
 top_tx <- unique(c(
