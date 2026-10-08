@@ -19,7 +19,7 @@ The isoform analysis workflow was performed in the following order:
 | Step | Script | Purpose |
 |---|---|---|
 | 1 | `Unifying_Novel_Transcript_Names.R` | Harmonize novel transcript identifiers across samples |
-| 2 | `Generating_Count_Matrix.R` | Generate transcript-level count matrices |
+| 2 | `Generating_Isoform_Count_Matrix.R` | Generate transcript-level count matrices |
 | 3 | `DTE_Analysis_DESeq2.R` | Differential transcript expression analysis |
 | 4 | `DET_Remodeling_Classification.R` | Transcript emergence and remodeling classification |
 | 5 | `DTU_Analysis_IsoformSwitchAnalyzeR_DEXSeq.R` | Differential transcript usage and isoform switching analysis |
