@@ -51,15 +51,15 @@ dir.create(figure_dir, recursive = TRUE, showWarnings = FALSE)
 
 # SQANTI3 classification files generated after filtering/rescue
 classification_files <- c(                                      # <-- MODIFY HERE IF NEEDED
-  "Filtered_SQANTI3_Results/C0_Sciatic_1_filtered_RulesFilter_result_classification_with_rescue_flag_with_transcriptID.txt",
-  "Filtered_SQANTI3_Results/C0_Sciatic_2_filtered_RulesFilter_result_classification_with_rescue_flag_with_transcriptID.txt",
-  "Filtered_SQANTI3_Results/C0_Sciatic_3_filtered_RulesFilter_result_classification_with_rescue_flag_with_transcriptID.txt",
-  "Filtered_SQANTI3_Results/C3_Injured_Sciatic_1_filtered_RulesFilter_result_classification_with_rescue_flag_with_transcriptID.txt",
-  "Filtered_SQANTI3_Results/C3_Injured_Sciatic_2_filtered_RulesFilter_result_classification_with_rescue_flag_with_transcriptID.txt",
-  "Filtered_SQANTI3_Results/C3_Injured_Sciatic_3_filtered_RulesFilter_result_classification_with_rescue_flag_with_transcriptID.txt",
-  "Filtered_SQANTI3_Results/C7_Injured_Sciatic_1_filtered_RulesFilter_result_classification_with_rescue_flag_with_transcriptID.txt",
-  "Filtered_SQANTI3_Results/C7_Injured_Sciatic_2_filtered_RulesFilter_result_classification_with_rescue_flag_with_transcriptID.txt",
-  "Filtered_SQANTI3_Results/C7_Injured_Sciatic_3_filtered_RulesFilter_result_classification_with_rescue_flag_with_transcriptID.txt"
+  "Filtered_SQANTI3_Results/C0_Sciatic_1_filtered_classification.txt",
+  "Filtered_SQANTI3_Results/C0_Sciatic_2_filtered_classification.txt",
+  "Filtered_SQANTI3_Results/C0_Sciatic_3_filtered_classification.txt",
+  "Filtered_SQANTI3_Results/C3_Injured_Sciatic_1_filtered_classification.txt",
+  "Filtered_SQANTI3_Results/C3_Injured_Sciatic_2_filtered_classification.txt",
+  "Filtered_SQANTI3_Results/C3_Injured_Sciatic_3_filtered_classification.txt",
+  "Filtered_SQANTI3_Results/C7_Injured_Sciatic_1_filtered_classification.txt",
+  "Filtered_SQANTI3_Results/C7_Injured_Sciatic_2_filtered_classification.txt",
+  "Filtered_SQANTI3_Results/C7_Injured_Sciatic_3_filtered_classification.txt"
 )
 
 classification_paths <- file.path(
@@ -70,7 +70,7 @@ classification_paths <- file.path(
 # SQANTI3 structural category summary table
 category_summary_path <- file.path(
   metrics_dir,
-  "Filtered_SQANTI3_Category_summary_FINAL.csv"
+  "Filtered_SQANTI3_Category_summary.csv"
 )                                                                # <-- MODIFY HERE IF NEEDED
 
 # ==============================================================================
