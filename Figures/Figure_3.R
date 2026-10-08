@@ -18,9 +18,9 @@
 #   - *_isoform_results.csv
 #       from Isoform_Analysis/DTE_Analysis_DESeq2.R
 #   - *_inferred_gene_results.csv
-#       from Isoform_Analysis/DGE_Analysis_LR_DESeq2.R
+#       from Gene_Analysis/DGE_Analysis_Long_Read.R
 #   - *_results.csv
-#       from Short_Read/DGE_Analysis_DESeq2.R
+#       from Gene_Analysis/DGE_Analysis_Short_Read.R
 #
 # Notes:
 #   DGE/DTE overlap, Venn diagrams and GO enrichment of DET-only genes are
