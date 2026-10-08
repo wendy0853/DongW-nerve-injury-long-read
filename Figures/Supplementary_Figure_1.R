@@ -1,7 +1,7 @@
 #!/usr/bin/env Rscript
 
 ################################################################################
-# Supplementary Figure 2
+# Supplementary Figure 1
 #
 # Purpose:
 #   Generate supplementary quality-control and differential transcript expression
