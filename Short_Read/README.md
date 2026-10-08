@@ -89,7 +89,7 @@ Required inputs:
 
 | File | Description |
 |---|---|
-| `all.gene_counts.xlsx` or `.csv` | featureCounts gene-level count matrix |
+| `Gene_Count_Matrix_SR.csv` | featureCounts gene-level count matrix |
 | sample metadata | sample group, time point, and treatment labels |
 
 The script assumes the count matrix contains gene annotation columns followed by sample count columns.
