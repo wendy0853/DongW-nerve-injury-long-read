@@ -46,7 +46,8 @@ Many scripts assume that upstream analyses from:
 
 - `Isoform_Analysis/`
 - `single-cell/`
-- `Short_Read/`
+- `Gene_Analysis/`
+- `Enrichment_Analysis/`
 
 have already been completed.
 
