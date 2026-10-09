@@ -666,7 +666,7 @@ gene_id_map <- read_tsv(count_path, show_col_types = FALSE) %>%
   ) %>%
   distinct(gene_symbol, mapped_associated_gene = associated_gene)
 
-mono_isoform_genes <- res_list$C3_vs_C0 %>%
+isoform_gene_ids <- res_list$C3_vs_C0 %>%
   left_join(gene_id_map, by = "gene_symbol", relationship = "many-to-many") %>%
   mutate(
     associated_gene = case_when(
@@ -675,13 +675,17 @@ mono_isoform_genes <- res_list$C3_vs_C0 %>%
       TRUE ~ NA_character_
     )
   ) %>%
-  filter(!is.na(associated_gene), !is.na(transcript_id)) %>%
+  filter(!is.na(associated_gene), !is.na(transcript_id))
+
+mono_isoform_genes <- isoform_gene_ids %>%
   distinct(associated_gene, transcript_id) %>%
   dplyr::count(associated_gene, name = "n_isoforms") %>%
   filter(n_isoforms == 1) %>%
   pull(associated_gene)
 
-multi_isoform_genes <- res_list$C3_vs_C0 %>%
+# Isoforms without an Ensembl gene ID cannot be assigned an isoform count and
+# are not included in the background.
+multi_isoform_genes <- isoform_gene_ids %>%
   filter(!associated_gene %in% mono_isoform_genes, !is.na(gene_symbol)) %>%
   pull(gene_symbol) %>%
   unique()
@@ -1130,3 +1134,4 @@ save_panel(p_remodeling, "Fig2E_UTR_CDS_ORF_Remodeling.png", width_mm = 50, heig
 write_csv(remodel_plot_df, file.path(results_dir, "Fig2E_UTR_CDS_ORF_remodeling_plot_source_data.csv"))
 
 message("Figure 2 plotting complete. Figures saved to: ", figure_dir)
+
