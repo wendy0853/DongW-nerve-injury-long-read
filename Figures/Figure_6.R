@@ -16,7 +16,10 @@
 #   E: Plotting_isoform_expression.R using Postn as input
 #   G: Plotting_isoform_trackplot.R using Postn isoforms as input
 #
-# Assumes DTU_Analysis_IsoformSwitchAnalyzeR_DEXSeq.R has already been run.
+# Assumes the following have already been run:
+#   Isoform_Analysis/DTU_Analysis_IsoformSwitchAnalyzeR_DEXSeq.R
+#   Isoform_Analysis/DTE_Analysis_DESeq2.R
+#   Gene_Analysis/DGE_Analysis_Long_Read.R
 #
 # =============================================================================
 
@@ -249,14 +252,15 @@ if (file.exists(seurat_object_path)) {
 # Figure 6C: DGE / DTE / DTU Venn diagram
 # =============================================================================
 
-short_read_dir <- "/path/to/short_read_results"                 # <-- MODIFY HERE
 isoform_results_dir <- "/path/to/isoform_analysis_results"      # <-- MODIFY HERE
 
 comparison <- "C3"                                              # <-- MODIFY HERE IF NEEDED
+lfc_cutoff <- 1                                                 # <-- MODIFY HERE IF NEEDED
 
+# Gene-level results from Gene_Analysis/DGE_Analysis_Long_Read.R
 gene_file <- file.path(
-  short_read_dir,
-  paste0(comparison, "_Injured_vs_C0_results.csv")
+  isoform_results_dir,
+  paste0(comparison, "_vs_C0_inferred_gene_results.csv")
 )                                                               # <-- MODIFY HERE IF NEEDED
 
 transcript_file <- file.path(
@@ -264,35 +268,75 @@ transcript_file <- file.path(
   paste0(comparison, "_vs_C0_isoform_results.csv")
 )                                                               # <-- MODIFY HERE IF NEEDED
 
+count_path <- file.path(
+  isoform_results_dir,
+  "all_transcripts_with_associated_genes_count.tsv"
+)                                                               # <-- MODIFY HERE IF NEEDED
+
+missing_venn_files <- c(gene_file, transcript_file, count_path)
+missing_venn_files <- missing_venn_files[!file.exists(missing_venn_files)]
+
+if (length(missing_venn_files) > 0) {
+  stop(
+    "Missing required file(s) for Figure 6C:\n",
+    paste(missing_venn_files, collapse = "\n"),
+    call. = FALSE
+  )
+}
+
 gene <- readr::read_csv(gene_file, show_col_types = FALSE) %>%
-  filter(!is.na(padj), padj < 0.05, abs(log2FoldChange) > 1) %>%
-  mutate(gene_symbol = coalesce(gene_symbol, ensembl_id))
+  filter(!is.na(padj), padj <= padj_cutoff, abs(log2FoldChange) >= lfc_cutoff)
+
+# Assign an Ensembl gene ID, via the gene symbol, to isoforms that lack one
+# (same approach as Supplementary_Figure_3.R).
+gene_id_map <- readr::read_tsv(count_path, show_col_types = FALSE) %>%
+  filter(
+    !is.na(gene_symbol),
+    !is.na(associated_gene),
+    str_starts(associated_gene, "ENSMUSG")
+  ) %>%
+  distinct(gene_symbol, mapped_associated_gene = associated_gene)
 
 transcript <- readr::read_csv(transcript_file, show_col_types = FALSE) %>%
-  filter(!is.na(padj), padj <= 0.05, abs(log2FoldChange) >= 1)
+  filter(!is.na(padj), padj <= padj_cutoff, abs(log2FoldChange) >= lfc_cutoff) %>%
+  left_join(gene_id_map, by = "gene_symbol", relationship = "many-to-many") %>%
+  mutate(
+    associated_gene = case_when(
+      !is.na(associated_gene) & str_starts(associated_gene, "ENSMUSG") ~ associated_gene,
+      !is.na(mapped_associated_gene) ~ mapped_associated_gene,
+      TRUE ~ NA_character_
+    )
+  ) %>%
+  dplyr::select(-mapped_associated_gene)
 
 DTU_filter <- all_switches_annotated %>%
   filter(condition_1 == "C0", condition_2 == comparison) %>%
-  filter(!is.na(padj), padj <= 0.05, abs(dIF) >= 0.1)
+  filter(!is.na(padj), padj <= padj_cutoff, abs(dIF) >= dIF_cutoff)
 
 # Ensure DTU genes have Ensembl gene IDs for overlap with DGE/DTE
 needs_fix <- !grepl("^ENSMUSG", DTU_filter$associated_gene)
 
 symbols_to_map <- unique(DTU_filter$gene_id[needs_fix])
 
-map_tbl <- AnnotationDbi::select(
-  org.Mm.eg.db,
-  keys = symbols_to_map,
-  keytype = "SYMBOL",
-  columns = c("ENSEMBL")
-) %>%
-  distinct(SYMBOL, ENSEMBL) %>%
-  group_by(SYMBOL) %>%
-  slice_head(n = 1) %>%
-  ungroup()
+map_tbl <- tibble(SYMBOL = character(), ENSEMBL = character())
+
+if (length(symbols_to_map) > 0) {
+  map_tbl <- suppressMessages(
+    AnnotationDbi::select(
+      org.Mm.eg.db::org.Mm.eg.db,
+      keys = symbols_to_map,
+      keytype = "SYMBOL",
+      columns = "ENSEMBL"
+    )
+  ) %>%
+    distinct(SYMBOL, ENSEMBL) %>%
+    group_by(SYMBOL) %>%
+    slice_head(n = 1) %>%
+    ungroup()
+}
 
 DTU_filter <- DTU_filter %>%
-  rename(gene_ensembl_id_original = associated_gene) %>%
+  dplyr::rename(gene_ensembl_id_original = associated_gene) %>%
   left_join(map_tbl, by = c("gene_id" = "SYMBOL")) %>%
   mutate(
     associated_gene = if_else(
@@ -306,15 +350,25 @@ DTU_filter <- DTU_filter %>%
       associated_gene
     )
   ) %>%
-  select(-ENSEMBL)
+  dplyr::select(-ENSEMBL)
 
 message("Number of unmapped DTU genes: ", sum(str_detect(DTU_filter$associated_gene, "^UNMAPPED_")))
 
+dge_ids <- unique(gene$associated_gene)
+dte_ids <- unique(transcript$associated_gene)
+dtu_ids <- unique(DTU_filter$associated_gene)
+
+message(
+  comparison, " gene sets | DGE: ", length(dge_ids),
+  " | DTE: ", length(dte_ids),
+  " | DTU: ", length(dtu_ids)
+)
+
 venn_plot <- VennDiagram::venn.diagram(
   x = list(
-    DGE = gene$ensembl_id,
-    DTE = transcript$associated_gene,
-    DTU = DTU_filter$associated_gene
+    DGE = dge_ids,
+    DTE = dte_ids,
+    DTU = dtu_ids
   ),
   filename = NULL,
   fill = c("skyblue", "lightyellow", "lightgreen"),
@@ -523,6 +577,6 @@ if (!file.exists(postn_qpcr_path)) {
     width_mm = 90,
     height_mm = 55
   )
-
+}
 
 message("Figure 6 plotting complete. Outputs saved to: ", figure_dir)
