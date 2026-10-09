@@ -4,6 +4,16 @@ This directory contains the background (universe) and tested gene lists used in 
 
 ---
 
+## Related Scripts
+
+| Script | Analysis |
+|---|---|
+| `Figures/Figure_2.R` | GO enrichment of multi-DET genes |
+| `Figures/Supplementary_Figure_3.R` | GO enrichment of DET-only genes |
+| `single-cell/Multi_DET_Celltype_Enrichment_Analysis.R` | Cell-type enrichment of multi-DET genes |
+
+---
+
 ## Gene Ontology Enrichment
 
 Used for:
@@ -64,13 +74,3 @@ The enrichment model was:
 ```text
 is_DEG ~ multiDET + log_expr + log_expr_ct + log2(n_iso)
 ```
-
----
-
-## Related Scripts
-
-| Script | Analysis |
-|---|---|
-| `Figures/Figure_2.R` | GO enrichment of multi-DET genes |
-| `Figures/Supplementary_Figure_3.R` | GO enrichment of DET-only genes |
-| `single-cell/Multi_DET_Celltype_Enrichment_Analysis.R` | Cell-type enrichment of multi-DET genes |
