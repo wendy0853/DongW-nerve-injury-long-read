@@ -192,50 +192,87 @@ readr::write_csv(
 
 if (file.exists(enrichment_path)) {
   enrichment_df <- readr::read_csv(enrichment_path, show_col_types = FALSE) %>%
+    filter(!is.na(adj_or)) %>%
     mutate(
-      contrast = factor(
-        contrast,
-        levels = c("C3_vs_C0", "C7_vs_C0"),
-        labels = c("C3 vs C0", "C7 vs C0")
-      ),
       cell_type = str_replace_all(cell_type, "Pericytes VSMCs", "Pericytes/VSMCs"),
-      cell_type = factor(cell_type, levels = cell_type_order)
+      neglog10_fdr = -log10(adj_padj + 1e-300)
     )
 
-  p_enrichment <- ggplot(
-    enrichment_df,
-    aes(
-      x = contrast,
-      y = cell_type,
-      size = odds_ratio,
-      color = neg_log10_FDR
-    )
+  # Adjusted odds ratio (logistic regression) with 95% confidence interval
+  plot_enrichment <- function(df, title) {
+    df <- df %>%
+      arrange(adj_or) %>%
+      mutate(cell_type = factor(cell_type, levels = unique(cell_type)))
+
+    ggplot(df, aes(x = adj_or, y = cell_type)) +
+      geom_vline(xintercept = 1, linetype = "dashed", linewidth = 0.3) +
+      geom_linerange(
+        aes(xmin = adj_ci_low, xmax = adj_ci_high),
+        linewidth = 0.3,
+        color = "grey30"
+      ) +
+      geom_point(aes(size = overlap, color = neglog10_fdr)) +
+      scale_size(range = c(1, 4), breaks = scales::pretty_breaks(n = 4)) +
+      scale_color_gradient(
+        low = "blue",
+        high = "red",
+        breaks = scales::pretty_breaks(n = 4)
+      ) +
+      scale_x_log10() +
+      labs(
+        title = title,
+        x = "Adjusted Odds Ratio",
+        y = NULL,
+        color = expression(-log[10]("FDR")),
+        size = "\nCount"
+      ) +
+      theme_minimal(base_size = 5) +
+      theme(
+        panel.grid.minor = element_blank(),
+        axis.line = element_line(color = "black", linewidth = 0.3),
+        axis.ticks = element_line(color = "black", linewidth = 0.3),
+        axis.ticks.length = unit(0.15, "cm"),
+        plot.title = element_text(size = 6, face = "italic", hjust = 0.5),
+        axis.text.x = element_text(size = 5),
+        axis.text.y = element_text(size = 5),
+        axis.title = element_text(size = 6),
+        legend.title = element_text(size = 5),
+        legend.text = element_text(size = 5),
+        legend.key.height = unit(0.2, "cm"),
+        legend.key.width = unit(0.1, "cm"),
+        legend.spacing.y = unit(0.1, "cm")
+      ) +
+      guides(
+        color = guide_colorbar(
+          order = 1,
+          barheight = unit(1.5, "cm"),
+          barwidth = unit(0.2, "cm")
+        ),
+        size = guide_legend(
+          order = 2,
+          keyheight = unit(0.35, "cm"),
+          keywidth = unit(0.35, "cm")
+        )
+      )
+  }
+
+  p_enrichment <- patchwork::wrap_plots(
+    plot_enrichment(filter(enrichment_df, contrast == "C3_vs_C0"), "C3 vs. C0"),
+    plot_enrichment(filter(enrichment_df, contrast == "C7_vs_C0"), "C7 vs. C0"),
+    nrow = 1
   ) +
-    geom_point(alpha = 0.9) +
-    scale_size_continuous(
-      name = "Odds ratio",
-      range = c(1.5, 7)
-    ) +
-    scale_color_gradient(
-      name = "-log10(FDR)"
-    ) +
-    xlab(NULL) +
-    ylab(NULL) +
-    theme_minimal(base_size = 8) +
-    theme(
-      axis.text.x = element_text(size = 8, face = "bold"),
-      axis.text.y = element_text(size = 8),
-      panel.grid.major = element_line(linewidth = 0.2),
-      panel.grid.minor = element_blank(),
-      legend.title = element_text(size = 7),
-      legend.text = element_text(size = 6)
+    patchwork::plot_annotation(
+      title = "Enrichment of Isoform Regulation across Cell Types",
+      theme = theme(
+        plot.title = element_text(size = 8, face = "bold", hjust = 0.5, vjust = -1)
+      )
     )
 
   save_panel(
     p_enrichment,
     "Fig4C_MultiDET_cell_type_enrichment.png",
-    width_mm = 85,
-    height_mm = 65
+    width_mm = 130,
+    height_mm = 60
   )
 } else {
   warning("Enrichment file not found. Skipping Figure 4C: ", enrichment_path)
