@@ -1,6 +1,6 @@
 # Enrichment Analysis Gene Lists
 
-This directory contains the background (universe) and tested gene lists used in the enrichment analyses of this study, so that each analysis can be reproduced.
+This directory contains the background (universe) and tested gene lists used in the enrichment analyses of this study.
 
 ---
 
