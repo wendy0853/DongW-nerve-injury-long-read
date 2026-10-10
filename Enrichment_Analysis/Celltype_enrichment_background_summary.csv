@@ -1,0 +1,15 @@
+comparison,cell_type,universe,n_multiDET,n_deg,overlap
+C3_vs_C0,Endoneurial,6183,895,1395,311
+C3_vs_C0,Endothelial,5794,856,828,180
+C3_vs_C0,Epineurial,6216,923,774,206
+C3_vs_C0,Immune,6024,897,889,222
+C3_vs_C0,Pericytes VSMCs,5861,850,945,207
+C3_vs_C0,Perineurial,5757,836,1428,260
+C3_vs_C0,Schwann Cells,6113,927,2041,471
+C7_vs_C0,Endoneurial,6131,601,764,147
+C7_vs_C0,Endothelial,5794,579,552,82
+C7_vs_C0,Epineurial,6216,621,427,78
+C7_vs_C0,Immune,5979,608,738,136
+C7_vs_C0,Pericytes VSMCs,5748,555,506,83
+C7_vs_C0,Perineurial,5757,563,879,116
+C7_vs_C0,Schwann Cells,6113,644,1602,290
