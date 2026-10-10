@@ -2,8 +2,8 @@
 
 This directory contains code used for the two gene-level differential expression analyses in this study:
 
-| Script | Gene counts | Purpose |
-|---|---|---|
+| Script | Gene counts |
+|---|---|
 | `DGE_Analysis_Long_Read.R` | Summed from the isoform count matrix on long reads |
 | `DGE_Analysis_Short_Read.R` | STAR + featureCounts on short reads |
 
