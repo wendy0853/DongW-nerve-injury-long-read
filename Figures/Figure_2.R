@@ -1134,4 +1134,3 @@ save_panel(p_remodeling, "Fig2E_UTR_CDS_ORF_Remodeling.png", width_mm = 50, heig
 write_csv(remodel_plot_df, file.path(results_dir, "Fig2E_UTR_CDS_ORF_remodeling_plot_source_data.csv"))
 
 message("Figure 2 plotting complete. Figures saved to: ", figure_dir)
-
