@@ -1,6 +1,6 @@
 # Single-Cell and Pseudobulk Transcriptomic Analysis
 
-This directory contains workflows used for processing, integrating, and analyzing single-nucleus RNA-seq datasets used in this study.
+This directory contains workflows used for processing, integrating, and analyzing single-cell RNA-seq datasets used in this study.
 
 Analyses included:
 
@@ -17,7 +17,7 @@ Analyses included:
 
 ## Overview
 
-Publicly available and newly generated single-nucleus RNA-seq datasets were processed jointly to investigate cell-type-specific transcriptional changes associated with peripheral nerve injury and neurodegeneration.
+Publicly available and newly generated single-cell RNA-seq datasets were processed jointly to investigate cell-type-specific transcriptional changes associated with peripheral nerve injury and neurodegeneration.
 
 To enable isoform-aware Mbp quantification, a custom Cell Ranger reference was generated in which canonical Mbp transcript annotations were modified to distinguish:
 
@@ -52,7 +52,7 @@ Reference generation was performed using:
 run_cellranger_count.sh
 ```
 
-Single-nucleus RNA-seq FASTQ files were aligned using Cell Ranger.
+Single-cell RNA-seq FASTQ files were aligned using Cell Ranger.
 
 Processing included:
 
@@ -95,7 +95,7 @@ This workflow performs:
 
 ### Quality Control
 
-Cells/nuclei were filtered using the following thresholds:
+Cells were filtered using the following thresholds:
 
 | Metric | Threshold |
 |---|---|
