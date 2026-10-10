@@ -18,7 +18,7 @@
 #   - *_isoform_results.csv
 #       from Isoform_Analysis/DTE_Analysis_DESeq2.R
 #   - *_inferred_gene_results.csv
-#       from Isoform_Analysis/DGE_Analysis_LR_DESeq2.R
+#       from Gene_Analysis/DGE_Analysis_Long_Read.R
 #
 ################################################################################
 
@@ -449,12 +449,12 @@ for (comparison in comparisons) {
     pull(associated_gene)
 
   det_only_genes <- dte_only_df %>%
-    filter(!associated_gene %in% mono_isoform_genes) %>%
+    filter(!is.na(associated_gene), !associated_gene %in% mono_isoform_genes) %>%
     pull(gene_symbol) %>%
     unique()
 
-  universe_genes <- transcript_raw %>%
-    filter(!associated_gene %in% mono_isoform_genes) %>%
+  universe_genes <- transcript_res %>%
+    filter(!is.na(associated_gene), !associated_gene %in% mono_isoform_genes) %>%
     pull(gene_symbol) %>%
     unique()
 
