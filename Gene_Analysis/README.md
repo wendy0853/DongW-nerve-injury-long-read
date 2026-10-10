@@ -4,8 +4,8 @@ This directory contains code used for the two gene-level differential expression
 
 | Script | Gene counts | Purpose |
 |---|---|---|
-| `DGE_Analysis_Long_Read.R` | Summed from the isoform count matrix | Gene-level expression from the same quantification as the isoform-level analysis, for direct comparison of DGE and DTE |
-| `DGE_Analysis_Short_Read.R` | STAR + featureCounts on short reads | Standard short-read gene-level analysis, used to assess concordance |
+| `DGE_Analysis_Long_Read.R` | Summed from the isoform count matrix on long reads |
+| `DGE_Analysis_Short_Read.R` | STAR + featureCounts on short reads |
 
 ---
 
@@ -15,7 +15,7 @@ This directory contains code used for the two gene-level differential expression
 DGE_Analysis_Long_Read.R
 ```
 
-Gene-level counts were obtained by summing the estimated counts of all isoforms assigned to the same Ensembl gene in the isoform count matrix. Gene- and isoform-level results were therefore derived from the same quantification, so that differences between DGE and DTE reflect the level of aggregation rather than the quantification method.
+Gene-level counts were obtained by summing the estimated counts of all isoforms assigned to the same Ensembl gene in the isoform count matrix.
 
 The isoform count matrix contains kallisto estimated counts from matched short reads quantified against long-read-derived transcript models (see `Isoform_Analysis/Generating_Isoform_Count_Matrix.R`).
 
@@ -67,24 +67,6 @@ DGE_Analysis_Short_Read.R
 ```
 
 Short-read RNA-seq libraries were prepared from the same bulk RNA samples used for long-read sequencing.
-
-Library preparation and sequencing were performed by GTAC@MGI using:
-
-- SMARTer Ultra Low RNA Kit for Illumina Sequencing
-- Illumina NovaSeq X Plus
-- at least 50 million paired-end reads per sample
-
-Base calling and demultiplexing were performed using Illumina bcl2fastq.
-
-Read alignment and gene-level quantification were performed by the sequencing core using:
-
-- STAR v2.7.11b
-- featureCounts v2.0.8
-
-Reference files:
-
-- Genome: GRCm39
-- Annotation: GENCODE vM38
 
 ### Sample Design
 
