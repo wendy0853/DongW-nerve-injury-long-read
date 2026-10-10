@@ -1,7 +1,7 @@
 #!/usr/bin/env Rscript
 
 # =============================================================================
-# Single-nucleus RNA-seq integration and pseudobulk DESeq2 analysis
+# Single-Cell RNA-seq integration and pseudobulk DESeq2 analysis
 # =============================================================================
 
 suppressPackageStartupMessages({
