@@ -5,8 +5,8 @@ This directory contains scripts used to generate manuscript main and supplementa
 Most figure panels were generated using outputs from:
 
 - `Isoform_Analysis/`
+- `Gene_Analysis/`
 - `single-cell/`
-- `Short_Read/`
 
 ---
 
@@ -20,7 +20,10 @@ Most figure panels were generated using outputs from:
 | Figure_4.R | Heterogeneous isoform regulation across nerve-resident cell types. |
 | Figure_5.R | Characterization of novel isoforms and validation of Lama4-novel-6 after peripheral nerve injury. |
 | Figure_6.R | Differential transcript usage (DTU) analysis identifies Postn isoform switching, exemplifying dynamic extracellular matrix remodeling during nerve repair. |
-| Supplementary_Figure_*.R | Supplementary figure generation scripts |
+| Supplementary_Figure_1.R | PCA and heatmap of differentially expressed transcripts. |
+| Supplementary_Figure_2.R | Isoform expression and track plots for selected genes. |
+| Supplementary_Figure_3.R | DGE/DTE Venn diagrams, volcano plots, and GO enrichment of DET-only genes. |
+| Supplementary_Figure_4_and_5.R | Supplementary single-cell plots. |
 
 ---
 
@@ -45,11 +48,12 @@ Figure scripts are organized by final manuscript figure number rather than analy
 Many scripts assume that upstream analyses from:
 
 - `Isoform_Analysis/`
-- `single-cell/`
 - `Gene_Analysis/`
-- `Enrichment_Analysis/`
+- `single-cell/`
 
 have already been completed.
+
+The background and tested gene lists used by the enrichment panels (Figure 2C, Supplementary Figure 3D, Figure 4C) are provided in `Enrichment_Analysis/`.
 
 Paths marked with:
 
