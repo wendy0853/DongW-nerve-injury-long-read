@@ -6,7 +6,7 @@
 #
 # Purpose:
 #   This script runs CellBender remove-background to remove ambient RNA
-#   contamination from single-nucleus RNA-seq count matrices.
+#   contamination from single-cell RNA-seq count matrices.
 #
 # Docker image used:
 #   us.gcr.io/broad-dsde-methods/cellbender:0.3.0
