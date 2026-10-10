@@ -171,7 +171,7 @@ gene_of_interest <- c("Fn1")
 timepoint <- c("C0",  "C3", "C7")
 
 plot_list <- lapply(timepoint, function(time) {
-  FeaturePlot(snRNA.annotated[, snRNA.annotated$timepoint == time], 
+  FeaturePlot(obj[, obj$timepoint == time], 
               features = gene_of_interest, 
               order = F, 
               pt.size = 0.01, raster = F) +
