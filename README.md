@@ -1,4 +1,4 @@
-# Isoform Remodeling Shapes Peripheral Nerve Response to Injury
+# Peripheral Nerve Injury Engages Transcript Isoform Remodeling
 
 Companion repository for the submitted manuscript **Dong W et al. Peripheral Nerve Injury Engages Transcript Isoform Remodeling to Coordinate Cellular and Extracellular Response. (2026)**
 
