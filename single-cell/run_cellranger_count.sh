@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # =============================================================================
-# Run Cell Ranger count for single-nucleus RNA-seq alignment
+# Run Cell Ranger count for single-cell RNA-seq alignment
 # =============================================================================
 #
 # Purpose:
