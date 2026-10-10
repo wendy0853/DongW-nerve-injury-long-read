@@ -12,6 +12,8 @@ The study integrates:
 
 to characterize isoform-level remodeling during Wallerian degeneration.
 
+The background and tested gene lists for every enrichment analysis in the manuscript are provided in [`Enrichment_Analysis/`](Enrichment_Analysis/).
+
 An interactive companion browser for exploring transcript- and gene-level results is available at **IsoNerve** (https://isonerve.pages.dev)
 
 If you use this repository or analysis framework, please cite:
@@ -35,12 +37,13 @@ Long-read and short-read sequencing were generated from the same bulk RNA sample
 ## Repository Structure
 
 ```text
-Figures/            Manuscript figures and supplementary figures
-IsoQuant/           Long-read alignment and transcript reconstruction workflows
-SQANTI3/            Isoform QC, filtering, and annotation workflows
-Isoform_Analysis/   Differential transcript expression and usage analyses
-Short_Read/         Differential gene expression analysis
-single-cell/        Single-cell and pseudobulk transcriptomic analyses
+Figures/               Manuscript figures and supplementary figures
+IsoQuant/              Long-read alignment and transcript reconstruction workflows
+SQANTI3/               Isoform QC, filtering, annotation, and quantification workflows
+Isoform_Analysis/      Differential transcript expression and usage analyses
+Gene_Analysis/         Differential gene expression analyses
+Enrichment_Analysis/   Background and tested gene lists for all enrichment analyses
+single-cell/           Single-cell and pseudobulk transcriptomic analyses
 ```
 
 ---
@@ -76,6 +79,12 @@ Analyses included:
 
 Low-confidence isoforms identified by SQANTI3 filtering were excluded from downstream analyses.
 
+### Quantification
+
+Isoform-level abundance was quantified from the matched short-read data using kallisto, as implemented in SQANTI3, with short reads from each sample pseudoaligned to that sample's long-read-derived transcript models. Estimated counts for isoforms retained after filtering and rescue were merged across samples into a single isoform count matrix after harmonizing novel transcript identifiers.
+
+Gene-level counts were obtained by summing the estimated counts of all isoforms assigned to the same Ensembl gene, so that gene- and isoform-level analyses were derived from the same quantification.
+
 ---
 
 ## Analysis Summary
@@ -84,7 +93,12 @@ Low-confidence isoforms identified by SQANTI3 filtering were excluded from downs
 
 **DESeq2**
 
-Differential transcript expression analyses were performed using isoform-level count matrices derived from long-read RNA sequencing. Differential gene expression analyses were performed using gene-level count matrices derived from short-read RNA sequencing. (Threshold: adjusted p-value ≤ 0.05 and Log2FoldChange ≥ 1)
+Differential transcript expression analyses were performed using the isoform count matrix described above. Differential gene expression analyses were performed using:
+
+- gene-level counts summed from the isoform count matrix, for direct comparison with DTE
+- gene-level counts from standard short-read alignment (STAR + featureCounts), used to assess concordance
+
+(Threshold: adjusted p-value ≤ 0.05 and |Log2FoldChange| ≥ 1)
 
 ### Differential Transcript Usage (DTU)
 
@@ -114,6 +128,18 @@ Processing steps included:
 - Seurat clustering
 - Pseudobulk DESeq2 analysis
 
+### Enrichment Analyses
+
+Three enrichment analyses were performed:
+
+| Analysis | Method | Figure |
+|---|---|---|
+| GO enrichment of multi-DET genes | clusterProfiler | Figure 2C |
+| GO enrichment of DET-only genes | clusterProfiler | Supplementary Figure 3D |
+| Enrichment of multi-DET genes among cell-type DEGs | Logistic regression | Figure 4C |
+
+Gene Ontology analyses used genes represented by at least two isoforms in the filtered isoform set as background. The cell-type analysis used, for each cell type and comparison, genes with at least two tested isoforms that were also tested in that cell type's pseudobulk analysis.
+
 ---
 
 ## Data Availability
@@ -127,6 +153,20 @@ Raw ONT long-read and Illumina short-read datasets are available through SRA **B
 
 Previously published datasets used in this study are from GSE291435 and GSE198582
 
+**Enrichment Analysis Gene Lists**
+
+The background (universe) and tested gene lists for all enrichment analyses are available in this repository under [`Enrichment_Analysis/`](Enrichment_Analysis/):
+
+| File | Contents |
+|---|---|
+| `GO_background_multi_isoform_genes.csv` | Background gene list for both GO analyses |
+| `GO_tested_multi_DET_genes.csv` | Multi-DET genes tested in Figure 2C |
+| `GO_tested_DET_only_genes.csv` | DET-only genes tested in Supplementary Figure 3D |
+| `Celltype_enrichment_background_genes.csv` | Background genes and model variables for each cell type and comparison in Figure 4C |
+| `Celltype_enrichment_background_summary.csv` | Background size and gene counts per cell type and comparison |
+
+See [`Enrichment_Analysis/README.md`](Enrichment_Analysis/README.md) for column descriptions.
+
 
 ## Software and Packages
 
@@ -137,6 +177,8 @@ Primary software used in this study includes:
 - DESeq2
 - IsoformSwitchAnalyzeR
 - DEXSeq
+- kallisto
+- clusterProfiler
 - Seurat
 - Harmony
 - CellBender
